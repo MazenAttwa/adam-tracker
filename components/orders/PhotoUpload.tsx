@@ -15,8 +15,8 @@ export function PhotoUpload({ orderId, canEdit }: PhotoUploadProps) {
   const { profile } = useAuth()
   const { tr } = useLang()
   const [photos, setPhotos] = useState<OrderPhoto[]>([])
-  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -30,24 +30,17 @@ export function PhotoUpload({ orderId, canEdit }: PhotoUploadProps) {
       .select('*')
       .eq('order_id', orderId)
       .order('uploaded_at', { ascending: true })
+    setPhotos((data ?? []) as OrderPhoto[])
+  }
 
-    if (!data) return
-    setPhotos(data as OrderPhoto[])
-
-    const urls: Record<string, string> = {}
-    await Promise.all(
-      (data as OrderPhoto[]).map(async photo => {
-        const { data: signed } = await supabase.storage
-          .from('product-photos')
-          .createSignedUrl(photo.file_path, 3600)
-        if (signed?.signedUrl) urls[photo.id] = signed.signedUrl
-      })
-    )
-    setPhotoUrls(urls)
+  function publicUrl(filePath: string): string {
+    const { data } = supabase.storage.from('product-photos').getPublicUrl(filePath)
+    return data.publicUrl
   }
 
   async function handleFiles(files: FileList) {
     if (!files.length || !profile) return
+    setUploadError(null)
     setUploading(true)
 
     for (const file of Array.from(files)) {
@@ -58,14 +51,22 @@ export function PhotoUpload({ orderId, canEdit }: PhotoUploadProps) {
         .from('product-photos')
         .upload(path, file, { contentType: file.type })
 
-      if (storageErr) continue
+      if (storageErr) {
+        setUploadError(storageErr.message)
+        continue
+      }
 
-      await supabase.from('order_photos').insert({
+      const { error: dbErr } = await supabase.from('order_photos').insert({
         order_id: orderId,
         file_path: path,
         file_name: file.name,
         uploaded_by: profile.id,
       })
+
+      if (dbErr) {
+        setUploadError(dbErr.message)
+        await supabase.storage.from('product-photos').remove([path])
+      }
     }
 
     setUploading(false)
@@ -127,6 +128,12 @@ export function PhotoUpload({ orderId, canEdit }: PhotoUploadProps) {
         onChange={e => e.target.files && handleFiles(e.target.files)}
       />
 
+      {uploadError && (
+        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {uploadError}
+        </p>
+      )}
+
       {photos.length === 0 ? (
         canEdit ? (
           <button
@@ -149,21 +156,12 @@ export function PhotoUpload({ orderId, canEdit }: PhotoUploadProps) {
               key={photo.id}
               className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200"
             >
-              {photoUrls[photo.id] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={photoUrls[photo.id]}
-                  alt={photo.file_name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <svg className="animate-spin h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                </div>
-              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={publicUrl(photo.file_path)}
+                alt={photo.file_name}
+                className="w-full h-full object-cover"
+              />
 
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">
                 <p className="text-white text-[10px] truncate leading-tight">{photo.file_name}</p>
