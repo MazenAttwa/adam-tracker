@@ -80,3 +80,12 @@ export interface SubmittedData {
   delivery_address?: string
   received_confirmation?: boolean
 }
+
+export interface OrderPhoto {
+  id: string
+  order_id: string
+  file_path: string
+  file_name: string
+  uploaded_by: string | null
+  uploaded_at: string
+}

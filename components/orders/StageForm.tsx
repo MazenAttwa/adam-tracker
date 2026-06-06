@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import { Input, Textarea, Select, Checkbox } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { PhotoUpload } from '@/components/orders/PhotoUpload'
 import { formatDateTime } from '@/lib/utils'
 import type { Stage, StageData } from '@/lib/types'
 
@@ -63,23 +64,28 @@ export function StageForm({ orderId, stage, stageData, canEdit, onSaved }: Stage
     <div className="space-y-4">
       {/* Stage-specific fields */}
       {stage === 'draft' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Textarea label={tr.fabricDescription} disabled={!canEdit}
-            value={String(d.fabric_description ?? '')}
-            onChange={e => set('fabric_description', e.target.value)} />
-          <Input label={tr.quantity} type="number" disabled={!canEdit}
-            value={String(d.quantity ?? '')}
-            onChange={e => set('quantity', e.target.value ? Number(e.target.value) : '')} />
-          <Textarea label={tr.sizeDetails} disabled={!canEdit}
-            value={String(d.size_details ?? '')}
-            onChange={e => set('size_details', e.target.value)} />
-          <Input label={tr.deadline} type="date" disabled={!canEdit}
-            value={String(d.deadline ?? '')}
-            onChange={e => set('deadline', e.target.value)} />
-          <Textarea label={tr.designNotes} disabled={!canEdit} className="sm:col-span-2"
-            value={String(d.design_notes ?? '')}
-            onChange={e => set('design_notes', e.target.value)} />
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Textarea label={tr.fabricDescription} disabled={!canEdit}
+              value={String(d.fabric_description ?? '')}
+              onChange={e => set('fabric_description', e.target.value)} />
+            <Input label={tr.quantity} type="number" disabled={!canEdit}
+              value={String(d.quantity ?? '')}
+              onChange={e => set('quantity', e.target.value ? Number(e.target.value) : '')} />
+            <Textarea label={tr.sizeDetails} disabled={!canEdit}
+              value={String(d.size_details ?? '')}
+              onChange={e => set('size_details', e.target.value)} />
+            <Input label={tr.deadline} type="date" disabled={!canEdit}
+              value={String(d.deadline ?? '')}
+              onChange={e => set('deadline', e.target.value)} />
+            <Textarea label={tr.designNotes} disabled={!canEdit} className="sm:col-span-2"
+              value={String(d.design_notes ?? '')}
+              onChange={e => set('design_notes', e.target.value)} />
+          </div>
+          <div className="border-t border-gray-100 pt-4">
+            <PhotoUpload orderId={orderId} canEdit={canEdit} />
+          </div>
+        </>
       )}
 
       {stage === 'preparation' && (

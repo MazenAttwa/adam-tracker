@@ -154,6 +154,13 @@ export const t = {
     filterByStage: 'Filter by stage',
     filterByStatus: 'Filter by status',
     all: 'All',
+
+    productPhotos: 'Product Photos',
+    uploadPhotos: 'Upload Photos',
+    uploading: 'Uploading…',
+    deletePhoto: 'Delete photo',
+    noPhotos: 'No photos uploaded yet.',
+    clickToUploadPhotos: 'Click here or drag photos to upload',
   },
 
   ar: {
@@ -293,6 +300,13 @@ export const t = {
     filterByStage: 'تصفية حسب المرحلة',
     filterByStatus: 'تصفية حسب الحالة',
     all: 'الكل',
+
+    productPhotos: 'صور المنتج',
+    uploadPhotos: 'رفع صور',
+    uploading: 'جارٍ الرفع…',
+    deletePhoto: 'حذف الصورة',
+    noPhotos: 'لا توجد صور مرفوعة بعد.',
+    clickToUploadPhotos: 'اضغط هنا أو اسحب الصور للرفع',
   },
 } as const
 
