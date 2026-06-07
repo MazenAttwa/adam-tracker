@@ -89,3 +89,43 @@ export interface OrderPhoto {
   uploaded_by: string | null
   uploaded_at: string
 }
+
+export type MaterialUnit = 'meter' | 'kg' | 'piece'
+export type StockMovementType = 'in' | 'out'
+
+export interface Material {
+  id: string
+  name: string
+  code: string
+  unit: MaterialUnit
+  current_quantity: number
+  minimum_quantity: number
+  cost_per_unit: number
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface StockMovement {
+  id: string
+  material_id: string
+  type: StockMovementType
+  quantity: number
+  notes: string | null
+  order_id: string | null
+  created_by: string | null
+  created_at: string
+  materials?: Pick<Material, 'id' | 'name' | 'code' | 'unit'>
+  orders?: { order_number: string }
+}
+
+export interface OrderMaterial {
+  id: string
+  order_id: string
+  material_id: string
+  quantity_needed: number
+  is_deducted: boolean
+  created_at: string
+  materials?: Material
+}

@@ -23,6 +23,8 @@ export function Navbar() {
         { href: '/dashboard', label: tr.dashboard },
         { href: '/orders', label: tr.orders },
         { href: '/orders/new', label: tr.newOrder },
+        { href: '/materials', label: tr.materials },
+        { href: '/stock', label: tr.stock },
       ]
     : [
         { href: '/dashboard', label: tr.dashboard },

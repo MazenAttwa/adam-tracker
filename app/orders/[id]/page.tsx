@@ -7,6 +7,7 @@ import { useLang } from '@/contexts/LanguageContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { StageProgress } from '@/components/orders/StageProgress'
 import { StageForm } from '@/components/orders/StageForm'
+import { OrderMaterials } from '@/components/orders/OrderMaterials'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { ConfirmModal } from '@/components/ui/Modal'
@@ -81,6 +82,44 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
       updated_by: profile?.id,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'order_id,stage' })
+
+    // Auto-deduct materials when advancing to cutting_printing
+    if (next === 'cutting_printing') {
+      const { data: orderMats } = await supabase
+        .from('order_materials')
+        .select('id, material_id, quantity_needed')
+        .eq('order_id', id)
+        .eq('is_deducted', false)
+
+      if (orderMats && orderMats.length > 0) {
+        for (const om of orderMats) {
+          await supabase.from('stock_movements').insert({
+            material_id: om.material_id,
+            type: 'out',
+            quantity: om.quantity_needed,
+            order_id: id,
+            notes: `Auto-deducted for order ${order.order_number}`,
+            created_by: profile?.id,
+          })
+          const { data: mat } = await supabase
+            .from('materials')
+            .select('current_quantity')
+            .eq('id', om.material_id)
+            .single()
+          if (mat) {
+            await supabase.from('materials')
+              .update({
+                current_quantity: Math.max(0, mat.current_quantity - om.quantity_needed),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', om.material_id)
+          }
+          await supabase.from('order_materials')
+            .update({ is_deducted: true })
+            .eq('id', om.id)
+        }
+      }
+    }
 
     const updates: Partial<Order> = { current_stage: next }
     if (next === 'submitted') updates.status = 'completed'
@@ -236,6 +275,12 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
             canEdit={canEditStage(activeTab)}
             onSaved={fetchStageData}
           />
+          {activeTab === 'draft' && (
+            <OrderMaterials
+              orderId={id}
+              canEdit={canEditStage('draft')}
+            />
+          )}
         </div>
       </main>
 
