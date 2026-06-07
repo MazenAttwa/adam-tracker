@@ -8,8 +8,8 @@ import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { formatDate, formatDateTime } from '@/lib/utils'
-import type { Material, StockMovement, StockMovementType, Order } from '@/lib/types'
+import { formatDate } from '@/lib/utils'
+import type { Material, StockMovement, StockMovementType, Order, Vendor } from '@/lib/types'
 
 interface MovementForm {
   material_id: string
@@ -17,10 +17,12 @@ interface MovementForm {
   quantity: string
   notes: string
   order_id: string
+  vendor_id: string
+  vendor_amount: string
 }
 
 const emptyForm: MovementForm = {
-  material_id: '', type: 'in', quantity: '', notes: '', order_id: '',
+  material_id: '', type: 'in', quantity: '', notes: '', order_id: '', vendor_id: '', vendor_amount: '',
 }
 
 export default function StockPage() {
@@ -31,6 +33,7 @@ export default function StockPage() {
 
   const [movements, setMovements] = useState<StockMovement[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
+  const [vendors, setVendors] = useState<Vendor[]>([])
   const [orders, setOrders] = useState<Pick<Order, 'id' | 'order_number'>[]>([])
   const [fetching, setFetching] = useState(true)
   const [filterMaterial, setFilterMaterial] = useState('')
@@ -44,39 +47,48 @@ export default function StockPage() {
     if (loading) return
     if (!profile) { router.push('/login'); return }
     if (profile.role === 'customer') { router.push('/my-orders'); return }
-    Promise.all([fetchMovements(), fetchMaterials(), fetchOrders()])
+    Promise.all([fetchMovements(), fetchMaterials(), fetchOrders(), fetchVendors()])
       .finally(() => setFetching(false))
   }, [profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchMovements() {
     const { data } = await supabase
       .from('stock_movements')
-      .select('*, materials(id, name, code, unit), orders(order_number)')
+      .select('*, materials(id, name, code, unit), orders(order_number), vendors(id, name)')
       .order('created_at', { ascending: false })
       .limit(200)
     setMovements(data ?? [])
   }
 
   async function fetchMaterials() {
-    const { data } = await supabase
-      .from('materials')
-      .select('*')
-      .order('name', { ascending: true })
+    const { data } = await supabase.from('materials').select('*').order('name')
     setMaterials(data ?? [])
+  }
+
+  async function fetchVendors() {
+    const { data } = await supabase.from('vendors').select('*').order('name')
+    setVendors(data ?? [])
   }
 
   async function fetchOrders() {
     const { data } = await supabase
-      .from('orders')
-      .select('id, order_number')
-      .eq('status', 'active')
-      .order('order_number', { ascending: false })
-      .limit(100)
+      .from('orders').select('id, order_number').eq('status', 'active')
+      .order('order_number', { ascending: false }).limit(100)
     setOrders(data ?? [])
   }
 
   function set(k: keyof MovementForm, v: string) {
-    setForm(p => ({ ...p, [k]: v }))
+    setForm(p => {
+      const next = { ...p, [k]: v }
+      // Auto-compute vendor_amount when material or quantity changes
+      if (k === 'material_id' || k === 'quantity') {
+        const mat = materials.find(m => m.id === (k === 'material_id' ? v : next.material_id))
+        const qty = parseFloat(k === 'quantity' ? v : next.quantity) || 0
+        if (mat && qty > 0) next.vendor_amount = (mat.cost_per_unit * qty).toFixed(2)
+        else next.vendor_amount = ''
+      }
+      return next
+    })
   }
 
   function openAdd() {
@@ -96,14 +108,15 @@ export default function StockPage() {
     if (!material) { setSaving(false); return }
 
     // Insert movement
-    const { error } = await supabase.from('stock_movements').insert({
+    const { data: mvData, error } = await supabase.from('stock_movements').insert({
       material_id: form.material_id,
       type: form.type,
       quantity: qty,
       notes: form.notes.trim() || null,
       order_id: form.order_id || null,
+      vendor_id: form.type === 'in' && form.vendor_id ? form.vendor_id : null,
       created_by: profile?.id,
-    })
+    }).select().single()
 
     if (error) { setFormError(error.message); setSaving(false); return }
 
@@ -116,9 +129,30 @@ export default function StockPage() {
       .update({ current_quantity: newQty, updated_at: new Date().toISOString() })
       .eq('id', form.material_id)
 
+    // If stock-in with vendor: create vendor transaction (purchase)
+    if (form.type === 'in' && form.vendor_id) {
+      const amt = parseFloat(form.vendor_amount) || 0
+      if (amt > 0) {
+        await supabase.from('vendor_transactions').insert({
+          vendor_id: form.vendor_id,
+          type: 'purchase',
+          amount: amt,
+          notes: form.notes.trim() || null,
+          stock_movement_id: mvData?.id ?? null,
+          created_by: profile?.id,
+        })
+        const vendor = vendors.find(v => v.id === form.vendor_id)
+        if (vendor) {
+          await supabase.from('vendors')
+            .update({ balance: vendor.balance + amt, updated_at: new Date().toISOString() })
+            .eq('id', form.vendor_id)
+        }
+      }
+    }
+
     setSaving(false)
     setShowForm(false)
-    Promise.all([fetchMovements(), fetchMaterials()])
+    Promise.all([fetchMovements(), fetchMaterials(), fetchVendors()])
   }
 
   const filtered = movements.filter(m => {
@@ -216,6 +250,7 @@ export default function StockPage() {
                     <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.materialName}</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.movementType}</th>
                     <th className="text-right px-5 py-3 font-medium text-gray-600">{tr.quantity}</th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.vendors}</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.linkedOrder}</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.notes}</th>
                   </tr>
@@ -223,9 +258,7 @@ export default function StockPage() {
                 <tbody>
                   {filtered.map(mv => (
                     <tr key={mv.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap">
-                        {formatDate(mv.created_at, lang)}
-                      </td>
+                      <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap">{formatDate(mv.created_at, lang)}</td>
                       <td className="px-5 py-3.5">
                         <div className="font-medium text-[#0f1b35]">{mv.materials?.name ?? '—'}</div>
                         <div className="text-xs font-mono text-gray-400">{mv.materials?.code}</div>
@@ -246,6 +279,9 @@ export default function StockPage() {
                             {mv.materials.unit === 'meter' ? tr.meter : mv.materials.unit === 'kg' ? tr.kg : tr.piece}
                           </span>
                         )}
+                      </td>
+                      <td className="px-5 py-3.5 text-gray-500">
+                        {mv.vendors?.name ?? '—'}
                       </td>
                       <td className="px-5 py-3.5 text-gray-500">
                         {(mv.orders as { order_number?: string } | undefined)?.order_number ?? '—'}
@@ -281,7 +317,9 @@ export default function StockPage() {
           <Select label={tr.selectMaterial} value={form.material_id} onChange={e => set('material_id', e.target.value)}>
             <option value="">—</option>
             {materials.map(m => (
-              <option key={m.id} value={m.id}>{m.name} ({m.code}) — {m.current_quantity.toLocaleString()} {m.unit === 'meter' ? tr.meter : m.unit === 'kg' ? tr.kg : tr.piece}</option>
+              <option key={m.id} value={m.id}>
+                {m.name} ({m.code}) — {m.current_quantity.toLocaleString()} {m.unit === 'meter' ? tr.meter : m.unit === 'kg' ? tr.kg : tr.piece}
+              </option>
             ))}
           </Select>
           <Select label={tr.movementType} value={form.type} onChange={e => set('type', e.target.value as StockMovementType)}>
@@ -290,6 +328,21 @@ export default function StockPage() {
           </Select>
           <Input label={tr.quantity} type="number" min="0.01" step="0.01"
             value={form.quantity} onChange={e => set('quantity', e.target.value)} />
+
+          {/* Vendor fields — only for stock-in */}
+          {form.type === 'in' && (
+            <>
+              <Select label={tr.linkVendor} value={form.vendor_id} onChange={e => set('vendor_id', e.target.value)}>
+                <option value="">{tr.noVendor}</option>
+                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </Select>
+              {form.vendor_id && (
+                <Input label={tr.purchaseAmount} type="number" min="0" step="0.01"
+                  value={form.vendor_amount} onChange={e => set('vendor_amount', e.target.value)} />
+              )}
+            </>
+          )}
+
           <Select label={tr.selectOrder} value={form.order_id} onChange={e => set('order_id', e.target.value)}>
             <option value="">{tr.noOrder}</option>
             {orders.map(o => <option key={o.id} value={o.id}>{o.order_number}</option>)}

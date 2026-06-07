@@ -107,6 +107,33 @@ export interface Material {
   updated_at: string
 }
 
+export type VendorCategory = 'fabric' | 'printing' | 'accessories' | 'other'
+export type VendorTransactionType = 'purchase' | 'payment'
+
+export interface Vendor {
+  id: string
+  name: string
+  phone: string | null
+  category: VendorCategory
+  balance: number
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface VendorTransaction {
+  id: string
+  vendor_id: string
+  type: VendorTransactionType
+  amount: number
+  notes: string | null
+  stock_movement_id: string | null
+  created_by: string | null
+  created_at: string
+  vendors?: Pick<Vendor, 'id' | 'name'>
+}
+
 export interface StockMovement {
   id: string
   material_id: string
@@ -114,10 +141,12 @@ export interface StockMovement {
   quantity: number
   notes: string | null
   order_id: string | null
+  vendor_id: string | null
   created_by: string | null
   created_at: string
   materials?: Pick<Material, 'id' | 'name' | 'code' | 'unit'>
   orders?: { order_number: string }
+  vendors?: Pick<Vendor, 'id' | 'name'>
 }
 
 export interface OrderMaterial {

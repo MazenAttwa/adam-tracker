@@ -164,6 +164,51 @@ export const t = {
     noPhotos: 'No photos uploaded yet.',
     clickToUploadPhotos: 'Click here or drag photos to upload',
 
+    // Vendors module
+    vendors: 'Vendors',
+    addVendor: 'Add Vendor',
+    editVendor: 'Edit Vendor',
+    vendorName: 'Vendor Name',
+    vendorPhone: 'Phone',
+    vendorCategory: 'Category',
+    balance: 'Balance Owed',
+    totalOwed: 'Total Owed',
+    totalVendors: 'Total Vendors',
+    totalOutstanding: 'Total Outstanding',
+    noVendors: 'No vendors found.',
+    deleteConfirmVendor: 'Delete this vendor? All transaction history will also be deleted.',
+    searchVendors: 'Search vendors…',
+    vendorNotes: 'Notes',
+    filterByCategory: 'Filter by category',
+    allCategories: 'All Categories',
+    fabric: 'Fabric',
+    printing: 'Printing',
+    accessories: 'Accessories',
+    other: 'Other',
+
+    // Vendor transactions
+    transactions: 'Transactions',
+    viewTransactions: 'Transactions',
+    addTransaction: 'Add Transaction',
+    transactionType: 'Type',
+    purchase: 'Purchase (debt +)',
+    payment: 'Payment (we paid)',
+    amount: 'Amount',
+    noTransactions: 'No transactions yet.',
+
+    // Aging report
+    agingReport: 'Aging Report',
+    vendorsTab: 'Vendors',
+    agingTab: 'Aging',
+    daysOutstanding: 'Days',
+    noOutstanding: 'No outstanding balances.',
+    oldestPurchase: 'Since',
+
+    // Vendor link in stock
+    linkVendor: 'Vendor (optional)',
+    noVendor: 'No vendor',
+    purchaseAmount: 'Purchase Amount',
+
     // Materials module
     materialName: 'Material Name',
     materialCode: 'Code',
@@ -360,6 +405,51 @@ export const t = {
     deletePhoto: 'حذف الصورة',
     noPhotos: 'لا توجد صور مرفوعة بعد.',
     clickToUploadPhotos: 'اضغط هنا أو اسحب الصور للرفع',
+
+    // Vendors module
+    vendors: 'الموردون',
+    addVendor: 'إضافة مورّد',
+    editVendor: 'تعديل المورّد',
+    vendorName: 'اسم المورّد',
+    vendorPhone: 'الهاتف',
+    vendorCategory: 'الفئة',
+    balance: 'الرصيد المستحق',
+    totalOwed: 'إجمالي المستحقات',
+    totalVendors: 'إجمالي الموردين',
+    totalOutstanding: 'إجمالي المستحق',
+    noVendors: 'لا يوجد موردون.',
+    deleteConfirmVendor: 'حذف هذا المورّد؟ سيُحذف سجل المعاملات بالكامل.',
+    searchVendors: 'بحث في الموردين…',
+    vendorNotes: 'ملاحظات',
+    filterByCategory: 'تصفية حسب الفئة',
+    allCategories: 'جميع الفئات',
+    fabric: 'قماش',
+    printing: 'طباعة',
+    accessories: 'اكسسوارات',
+    other: 'أخرى',
+
+    // Vendor transactions
+    transactions: 'المعاملات',
+    viewTransactions: 'المعاملات',
+    addTransaction: 'إضافة معاملة',
+    transactionType: 'النوع',
+    purchase: 'شراء (دين +)',
+    payment: 'دفعة (سداد)',
+    amount: 'المبلغ',
+    noTransactions: 'لا توجد معاملات بعد.',
+
+    // Aging report
+    agingReport: 'تقرير الديون',
+    vendorsTab: 'الموردون',
+    agingTab: 'الديون',
+    daysOutstanding: 'أيام',
+    noOutstanding: 'لا توجد أرصدة مستحقة.',
+    oldestPurchase: 'منذ',
+
+    // Vendor link in stock
+    linkVendor: 'المورّد (اختياري)',
+    noVendor: 'بدون مورّد',
+    purchaseAmount: 'مبلغ الشراء',
 
     // Materials module
     materialName: 'اسم المادة',
