@@ -257,6 +257,69 @@ export const t = {
     addOrderMaterial: 'Link Material',
     noOrderMaterials: 'No materials linked to this order.',
     materialsDeductedMsg: 'Materials are automatically deducted when the order reaches Cutting & Printing stage.',
+
+    // Finance module
+    finance: 'Finance',
+    financeDashboard: 'Dashboard',
+    expensesTab: 'Expenses',
+    revenueTab: 'Revenue',
+    monthlyCloseTab: 'Monthly Close',
+
+    // Shared
+    date: 'Date',
+    description: 'Description',
+    month: 'Month',
+    filterByMonth: 'Filter by month',
+    allMonths: 'All Months',
+    closedAt: 'Closed at',
+
+    // Expenses
+    expenses: 'Expenses',
+    addExpense: 'Add Expense',
+    editExpense: 'Edit Expense',
+    expenseCategory: 'Category',
+    paidTo: 'Paid To (optional)',
+    noExpenses: 'No expenses found.',
+    deleteConfirmExpense: 'Delete this expense? This cannot be undone.',
+    searchExpenses: 'Search expenses…',
+    totalExpenses: 'Total Expenses',
+    salary: 'Salary',
+    rent: 'Rent',
+    utilities: 'Utilities',
+    transport: 'Transport',
+    expensesByCategory: 'By Category',
+
+    // Revenue
+    revenue: 'Revenue',
+    addRevenue: 'Add Revenue',
+    editRevenue: 'Edit Revenue',
+    revenueType: 'Revenue Type',
+    linkedOrderOptional: 'Linked Order (optional)',
+    noRevenue: 'No revenue entries found.',
+    deleteConfirmRevenue: 'Delete this revenue entry? This cannot be undone.',
+    totalRevenue: 'Total Revenue',
+    deliveryFees: 'Delivery Fees',
+    sales: 'Sales',
+    autoRevenue: 'Order submitted',
+
+    // Financial dashboard
+    netProfit: 'Net Profit',
+    financialSummary: 'This Month',
+    revenueVsExpenses: 'Revenue vs Expenses',
+    last6Months: 'Last 6 Months',
+    vendorObligations: 'Vendor Obligations',
+
+    // Monthly close
+    monthlyClose: 'Monthly Close',
+    closeMonth: 'Close Month',
+    closedMonth: 'Closed',
+    monthIsClosed: 'This month is closed — no edits allowed.',
+    confirmCloseMonth: 'Close this month? Expenses and revenue for this period cannot be edited after closing.',
+    noClosedMonths: 'No months have been closed yet.',
+    closedMonths: 'Closed Months',
+    selectMonthToClose: 'Select month to close',
+    monthStatement: 'Monthly Statement',
+    printStatement: 'Print Statement',
   },
 
   ar: {
@@ -499,6 +562,69 @@ export const t = {
     addOrderMaterial: 'ربط مادة',
     noOrderMaterials: 'لا توجد مواد مرتبطة بهذا الطلب.',
     materialsDeductedMsg: 'سيتم خصم المواد تلقائياً عند وصول الطلب لمرحلة القص والطباعة.',
+
+    // Finance module
+    finance: 'المالية',
+    financeDashboard: 'لوحة التحكم',
+    expensesTab: 'المصروفات',
+    revenueTab: 'الإيرادات',
+    monthlyCloseTab: 'الإغلاق الشهري',
+
+    // Shared
+    date: 'التاريخ',
+    description: 'الوصف',
+    month: 'الشهر',
+    filterByMonth: 'تصفية حسب الشهر',
+    allMonths: 'جميع الأشهر',
+    closedAt: 'تاريخ الإغلاق',
+
+    // Expenses
+    expenses: 'المصروفات',
+    addExpense: 'إضافة مصروف',
+    editExpense: 'تعديل المصروف',
+    expenseCategory: 'الفئة',
+    paidTo: 'مدفوع لـ (اختياري)',
+    noExpenses: 'لا توجد مصروفات.',
+    deleteConfirmExpense: 'حذف هذا المصروف؟ لا يمكن التراجع.',
+    searchExpenses: 'بحث في المصروفات…',
+    totalExpenses: 'إجمالي المصروفات',
+    salary: 'رواتب',
+    rent: 'إيجار',
+    utilities: 'مرافق',
+    transport: 'مواصلات',
+    expensesByCategory: 'حسب الفئة',
+
+    // Revenue
+    revenue: 'الإيرادات',
+    addRevenue: 'إضافة إيراد',
+    editRevenue: 'تعديل الإيراد',
+    revenueType: 'نوع الإيراد',
+    linkedOrderOptional: 'الطلب المرتبط (اختياري)',
+    noRevenue: 'لا توجد إيرادات.',
+    deleteConfirmRevenue: 'حذف هذا الإيراد؟ لا يمكن التراجع.',
+    totalRevenue: 'إجمالي الإيرادات',
+    deliveryFees: 'رسوم التوصيل',
+    sales: 'مبيعات',
+    autoRevenue: 'تم تسليم الطلب',
+
+    // Financial dashboard
+    netProfit: 'صافي الربح',
+    financialSummary: 'هذا الشهر',
+    revenueVsExpenses: 'الإيرادات مقابل المصروفات',
+    last6Months: 'آخر 6 أشهر',
+    vendorObligations: 'مستحقات الموردين',
+
+    // Monthly close
+    monthlyClose: 'الإغلاق الشهري',
+    closeMonth: 'إغلاق الشهر',
+    closedMonth: 'مغلق',
+    monthIsClosed: 'هذا الشهر مغلق — لا يمكن التعديل.',
+    confirmCloseMonth: 'إغلاق هذا الشهر؟ لن يمكن تعديل المصروفات أو الإيرادات بعد الإغلاق.',
+    noClosedMonths: 'لم يتم إغلاق أي شهر بعد.',
+    closedMonths: 'الأشهر المغلقة',
+    selectMonthToClose: 'اختر الشهر للإغلاق',
+    monthStatement: 'كشف الحساب الشهري',
+    printStatement: 'طباعة الكشف',
   },
 } as const
 

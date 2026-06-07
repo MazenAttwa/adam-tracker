@@ -125,6 +125,18 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     if (next === 'submitted') updates.status = 'completed'
 
     await supabase.from('orders').update(updates).eq('id', id)
+
+    // Auto-create a revenue entry (amount=0, edit in Finance) when order is submitted
+    if (next === 'submitted') {
+      await supabase.from('revenue').insert({
+        date: new Date().toISOString().split('T')[0],
+        type: 'sales',
+        amount: 0,
+        description: `${order.order_number} — ${order.customer_name}`,
+        order_id: id,
+        created_by: profile?.id,
+      })
+    }
     setAdvancing(false)
     setShowAdvance(false)
     await fetchOrder()

@@ -158,3 +158,45 @@ export interface OrderMaterial {
   created_at: string
   materials?: Material
 }
+
+export type ExpenseCategory = 'salary' | 'rent' | 'utilities' | 'materials' | 'transport' | 'other'
+export type RevenueType = 'sales' | 'delivery_fees' | 'other'
+
+export interface Expense {
+  id: string
+  date: string
+  category: ExpenseCategory
+  amount: number
+  description: string
+  vendor_id: string | null
+  month_close_id: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  vendors?: Pick<Vendor, 'id' | 'name'>
+}
+
+export interface Revenue {
+  id: string
+  date: string
+  type: RevenueType
+  amount: number
+  description: string
+  order_id: string | null
+  month_close_id: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  orders?: { order_number: string }
+}
+
+export interface MonthClose {
+  id: string
+  year_month: string
+  total_revenue: number
+  total_expenses: number
+  net_profit: number
+  notes: string | null
+  closed_by: string | null
+  closed_at: string
+}
