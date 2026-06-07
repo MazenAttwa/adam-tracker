@@ -27,6 +27,9 @@ export function Navbar() {
         { href: '/stock', label: tr.stock },
         { href: '/vendors', label: tr.vendors },
         { href: '/finance', label: tr.finance },
+        { href: '/retailers', label: tr.retailers },
+        { href: '/sales', label: tr.sales },
+        { href: '/reports', label: tr.reports },
       ]
     : [
         { href: '/dashboard', label: tr.dashboard },

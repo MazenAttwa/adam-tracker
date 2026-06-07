@@ -200,3 +200,45 @@ export interface MonthClose {
   closed_by: string | null
   closed_at: string
 }
+
+export type RetailerType = 'retail' | 'wholesale'
+export type DeliveryStatus = 'pending' | 'out_for_delivery' | 'delivered' | 'returned'
+
+export interface Retailer {
+  id: string
+  name: string
+  phone: string | null
+  type: RetailerType
+  address: string | null
+  balance: number
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SaleItem {
+  name: string
+  quantity: number
+  unit_price: number
+  total: number
+}
+
+export interface Sale {
+  id: string
+  invoice_number: string
+  date: string
+  retailer_id: string
+  order_id: string | null
+  items: SaleItem[]
+  total_amount: number
+  delivery_status: DeliveryStatus
+  delivery_date: string | null
+  delivery_notes: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  retailers?: Pick<Retailer, 'id' | 'name' | 'phone' | 'address'>
+  orders?: { order_number: string }
+}
