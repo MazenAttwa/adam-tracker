@@ -27,6 +27,7 @@ interface AssignmentForm {
   start_date: string; end_date: string
   estimated_hours: string; quantity: string
 }
+export interface DragOrder { id: string; order_number: string; customer_name: string }
 
 function getMidnight(offsetDays = 0) {
   const d = new Date()
@@ -35,9 +36,21 @@ function getMidnight(offsetDays = 0) {
   return d
 }
 
-interface Props { canEdit: boolean }
+interface Props {
+  canEdit: boolean
+  draggingOrder?: DragOrder | null
+  dragOverLineId?: string | null
+  pendingDrop?: { lineId: string; order: DragOrder } | null
+  onPendingDropHandled?: () => void
+}
 
-export function ProductionGantt({ canEdit }: Props) {
+export function ProductionGantt({
+  canEdit,
+  draggingOrder,
+  dragOverLineId,
+  pendingDrop,
+  onPendingDropHandled,
+}: Props) {
   const supabase = createClient()
   const { profile } = useAuth()
   const { tr, lang } = useLang()
@@ -57,6 +70,7 @@ export function ProductionGantt({ canEdit }: Props) {
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null)
   const [selectedAssignment, setSelectedAssignment] = useState<ProductionAssignment | null>(null)
   const [saving, setSaving] = useState(false)
+  const [flashingLineId, setFlashingLineId] = useState<string | null>(null)
   const [form, setForm] = useState<AssignmentForm>({
     order_id: '', order_name: '', start_date: '', end_date: '',
     estimated_hours: '', quantity: '',
@@ -90,7 +104,6 @@ export function ProductionGantt({ canEdit }: Props) {
     let cancelled = false
     async function init() {
       const fetchedLines = await fetchData()
-      // Seed 5 default lines on first ever load (only managers/workers, only once)
       if (!cancelled && fetchedLines.length === 0 && canEdit && !didInitRef.current) {
         didInitRef.current = true
         const defaults = Array.from({ length: DEFAULT_LINE_COUNT }, (_, i) => ({
@@ -125,6 +138,24 @@ export function ProductionGantt({ canEdit }: Props) {
     }
   }, [dataLoaded, todayLineX])
 
+  // Open modal pre-filled when an order card is dropped onto a line
+  useEffect(() => {
+    if (!pendingDrop) return
+    const todayStr = getMidnight(0).toISOString().split('T')[0]
+    const endStr   = getMidnight(3).toISOString().split('T')[0]
+    setSelectedLineId(pendingDrop.lineId)
+    setSelectedAssignment(null)
+    setForm({
+      order_id:        pendingDrop.order.id,
+      order_name:      `${pendingDrop.order.order_number} — ${pendingDrop.order.customer_name}`,
+      start_date:      todayStr,
+      end_date:        endStr,
+      estimated_hours: '',
+      quantity:        '',
+    })
+    setShowModal(true)
+  }, [pendingDrop]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Line CRUD ─────────────────────────────────────────────
   async function addLine() {
     await supabase.from('production_lines').insert({
@@ -153,7 +184,8 @@ export function ProductionGantt({ canEdit }: Props) {
     const todayStr = today.toISOString().split('T')[0]
     setSelectedLineId(lineId)
     setSelectedAssignment(null)
-    setForm({ order_id: '', order_name: '', start_date: todayStr, end_date: todayStr, estimated_hours: '', quantity: '' })
+    setForm({ order_id: '', order_name: '', start_date: todayStr, end_date: todayStr,
+              estimated_hours: '', quantity: '' })
     setShowModal(true)
   }
 
@@ -162,12 +194,12 @@ export function ProductionGantt({ canEdit }: Props) {
     setSelectedLineId(a.line_id)
     setSelectedAssignment(a)
     setForm({
-      order_id: orderInList ? (a.order_id ?? '') : '',
-      order_name: a.order_name,
-      start_date: a.start_date,
-      end_date: a.end_date,
+      order_id:        orderInList ? (a.order_id ?? '') : '',
+      order_name:      a.order_name,
+      start_date:      a.start_date,
+      end_date:        a.end_date,
       estimated_hours: a.estimated_hours ? String(a.estimated_hours) : '',
-      quantity: a.quantity ? String(a.quantity) : '',
+      quantity:        a.quantity ? String(a.quantity) : '',
     })
     setShowModal(true)
   }
@@ -176,6 +208,7 @@ export function ProductionGantt({ canEdit }: Props) {
     setShowModal(false)
     setSelectedAssignment(null)
     setSelectedLineId(null)
+    onPendingDropHandled?.()
   }
 
   function resolveOrderName() {
@@ -192,16 +225,18 @@ export function ProductionGantt({ canEdit }: Props) {
     const label = resolveOrderName()
     if (!label) return
     setSaving(true)
+    const isNew = !selectedAssignment
+    const savedLineId = selectedLineId  // capture before closeModal clears it
 
     const payload = {
-      line_id: selectedLineId,
-      order_id: form.order_id || null,
-      order_name: label,
-      start_date: form.start_date,
-      end_date: form.end_date,
-      estimated_hours: Number(form.estimated_hours) || 0,
-      quantity: Number(form.quantity) || 0,
-      created_by: profile?.id,
+      line_id:          selectedLineId,
+      order_id:         form.order_id || null,
+      order_name:       label,
+      start_date:       form.start_date,
+      end_date:         form.end_date,
+      estimated_hours:  Number(form.estimated_hours) || 0,
+      quantity:         Number(form.quantity) || 0,
+      created_by:       profile?.id,
     }
 
     if (selectedAssignment) {
@@ -213,6 +248,12 @@ export function ProductionGantt({ canEdit }: Props) {
     setSaving(false)
     closeModal()
     fetchData()
+
+    // Green flash on the line that just got a new assignment
+    if (isNew && savedLineId) {
+      setFlashingLineId(savedLineId)
+      setTimeout(() => setFlashingLineId(null), 800)
+    }
   }
 
   async function deleteAssignment() {
@@ -224,22 +265,21 @@ export function ProductionGantt({ canEdit }: Props) {
 
   // ── Bar geometry ──────────────────────────────────────────
   function getBarPos(a: ProductionAssignment): { left: number; width: number } | null {
-    const winMs = windowStart.getTime()
+    const winMs    = windowStart.getTime()
     const startIdx = Math.round((new Date(a.start_date + 'T00:00:00').getTime() - winMs) / 86400000)
     const endIdx   = Math.round((new Date(a.end_date   + 'T00:00:00').getTime() - winMs) / 86400000) + 1
-    const cStart = Math.max(0, startIdx)
-    const cEnd   = Math.min(WINDOW_DAYS, endIdx)
+    const cStart   = Math.max(0, startIdx)
+    const cEnd     = Math.min(WINDOW_DAYS, endIdx)
     if (cStart >= cEnd) return null
     return { left: cStart * DAY_WIDTH, width: (cEnd - cStart) * DAY_WIDTH }
   }
 
   function barLabel(a: ProductionAssignment, width: number) {
     if (width < 28) return ''
-    const name = a.order_name
     const meta = [a.quantity ? `${a.quantity}pcs` : '', a.estimated_hours ? `${a.estimated_hours}h` : '']
       .filter(Boolean).join(' · ')
-    if (width >= 160 && meta) return `${name}  ${meta}`
-    return name
+    if (width >= 160 && meta) return `${a.order_name}  ${meta}`
+    return a.order_name
   }
 
   // ── Summary stats ─────────────────────────────────────────
@@ -248,6 +288,20 @@ export function ProductionGantt({ canEdit }: Props) {
   const totalHours  = assignments.reduce((s, a) => s + (a.estimated_hours || 0), 0)
 
   const dateError = form.end_date && form.start_date && form.end_date < form.start_date
+
+  // ── Row class helpers ─────────────────────────────────────
+  function leftRowClass(lineId: string) {
+    if (dragOverLineId === lineId)  return 'bg-blue-50 border-l-[3px] border-l-blue-400 border-b-gray-100'
+    if (flashingLineId === lineId)  return 'bg-green-50 border-l-[3px] border-l-green-400 border-b-gray-100'
+    if (draggingOrder)              return 'border-b border-gray-100 hover:bg-blue-50/40 cursor-copy'
+    return 'border-b border-gray-100'
+  }
+
+  function chartRowClass(lineId: string) {
+    if (dragOverLineId === lineId)  return 'bg-blue-50/50'
+    if (flashingLineId === lineId)  return 'bg-green-50/50'
+    return ''
+  }
 
   return (
     <div className="mt-8">
@@ -264,10 +318,10 @@ export function ProductionGantt({ canEdit }: Props) {
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         {[
-          { label: tr.finishing,      value: finishingOrders.length },
-          { label: tr.totalPieces,    value: totalPieces || '—' },
-          { label: tr.totalHours,     value: totalHours > 0 ? `${totalHours}h` : '—' },
-          { label: tr.activeLines,    value: linesInUse },
+          { label: tr.finishing,   value: finishingOrders.length },
+          { label: tr.totalPieces, value: totalPieces || '—' },
+          { label: tr.totalHours,  value: totalHours > 0 ? `${totalHours}h` : '—' },
+          { label: tr.activeLines, value: linesInUse },
         ].map(c => (
           <div key={c.label} className="bg-[#0f1b35]/5 rounded-xl p-3">
             <div className="text-2xl font-bold text-[#0f1b35]">{c.value}</div>
@@ -276,8 +330,17 @@ export function ProductionGantt({ canEdit }: Props) {
         ))}
       </div>
 
-      {/* Gantt board */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Gantt board — ring highlights while dragging */}
+      <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all duration-200 ${
+        draggingOrder ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'
+      }`}>
+        {/* Drop hint banner */}
+        {draggingOrder && (
+          <div className="text-center text-xs font-medium text-blue-600 py-2 bg-blue-50 border-b border-blue-100 select-none">
+            {lang === 'ar' ? '↓ أفلت الطلب على أحد الخطوط لتحديد موعده' : '↓ Drop on a line to assign'}
+          </div>
+        )}
+
         {!dataLoaded ? (
           <div className="h-24 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-[#c9a84c] border-t-transparent rounded-full animate-spin" />
@@ -285,9 +348,8 @@ export function ProductionGantt({ canEdit }: Props) {
         ) : (
           <div className="flex">
 
-            {/* ── Left: line names column ───────────────────── */}
+            {/* ── Left: line names ─────────────────────────────── */}
             <div className="w-40 sm:w-52 flex-shrink-0 border-r border-gray-200 bg-gray-50/60">
-              {/* Header */}
               <div className="h-10 px-3 flex items-center border-b border-gray-100">
                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{tr.line}</span>
               </div>
@@ -296,11 +358,13 @@ export function ProductionGantt({ canEdit }: Props) {
                 const color = LINE_COLORS[idx % LINE_COLORS.length]
                 const hasAssignments = assignments.some(a => a.line_id === line.id)
                 return (
-                  <div key={line.id} className="h-12 px-2 flex items-center gap-2 border-b border-gray-100 group/row">
-                    {/* Colour dot */}
+                  <div
+                    key={line.id}
+                    data-line-id={line.id}
+                    className={`h-12 px-2 flex items-center gap-2 transition-colors duration-150 group/row ${leftRowClass(line.id)}`}
+                  >
                     <div className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: color }} />
 
-                    {/* Name */}
                     {editingLineId === line.id ? (
                       <input
                         autoFocus
@@ -329,7 +393,6 @@ export function ProductionGantt({ canEdit }: Props) {
                       </button>
                     )}
 
-                    {/* Actions */}
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {canEdit && (
                         <button
@@ -363,14 +426,14 @@ export function ProductionGantt({ canEdit }: Props) {
               )}
             </div>
 
-            {/* ── Right: scrollable timeline (always LTR) ───── */}
+            {/* ── Right: scrollable timeline (always LTR) ──────── */}
             <div className="flex-1 overflow-x-auto" ref={scrollRef} dir="ltr">
               <div style={{ width: WINDOW_DAYS * DAY_WIDTH, position: 'relative' }}>
 
                 {/* Date header */}
                 <div className="h-10 flex border-b border-gray-100 bg-gray-50/60 relative">
                   {dates.map((d, i) => {
-                    const isToday = d.getTime() === today.getTime()
+                    const isToday   = d.getTime() === today.getTime()
                     const showMonth = i === 0 || d.getDate() === 1
                     return (
                       <div
@@ -387,18 +450,26 @@ export function ProductionGantt({ canEdit }: Props) {
                       </div>
                     )
                   })}
-                  <div className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10 pointer-events-none" style={{ left: todayLineX }} />
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10 pointer-events-none"
+                    style={{ left: todayLineX }}
+                  />
                 </div>
 
-                {/* One row per line */}
+                {/* One chart row per line */}
                 {lines.map((line, lineIdx) => {
                   const color = LINE_COLORS[lineIdx % LINE_COLORS.length]
                   const lineAssignments = assignments.filter(a => a.line_id === line.id)
                   return (
-                    <div key={line.id} className="relative border-b border-gray-100" style={{ height: 48 }}>
+                    <div
+                      key={line.id}
+                      data-line-id={line.id}
+                      className={`relative border-b border-gray-100 transition-colors duration-150 ${chartRowClass(line.id)}`}
+                      style={{ height: 48 }}
+                    >
                       {/* Day backgrounds */}
                       {dates.map((d, i) => {
-                        const isToday = d.getTime() === today.getTime()
+                        const isToday   = d.getTime() === today.getTime()
                         const isWeekend = d.getDay() === 0 || d.getDay() === 6
                         return (
                           <div
@@ -422,7 +493,7 @@ export function ProductionGantt({ canEdit }: Props) {
                         const bw = Math.max(pos.width - 6, 4)
                         const tooltip = [
                           a.order_name,
-                          a.quantity ? `${a.quantity} pcs` : '',
+                          a.quantity       ? `${a.quantity} pcs` : '',
                           a.estimated_hours ? `${a.estimated_hours}h` : '',
                         ].filter(Boolean).join(' · ')
                         return (
@@ -484,7 +555,6 @@ export function ProductionGantt({ canEdit }: Props) {
         }
       >
         <div className="space-y-4">
-          {/* Order dropdown — ALL finishing orders */}
           <Select
             label={tr.ganttOrderLabel}
             value={form.order_id}
@@ -493,7 +563,7 @@ export function ProductionGantt({ canEdit }: Props) {
               const o = finishingOrders.find(x => x.id === e.target.value)
               setForm(f => ({
                 ...f,
-                order_id: e.target.value,
+                order_id:   e.target.value,
                 order_name: o ? `${o.order_number} — ${o.customer_name}` : f.order_name,
               }))
             }}
@@ -504,7 +574,6 @@ export function ProductionGantt({ canEdit }: Props) {
             ))}
           </Select>
 
-          {/* Custom label when no order selected */}
           {!form.order_id && (
             <Input
               label={tr.customOrderName}
@@ -515,7 +584,6 @@ export function ProductionGantt({ canEdit }: Props) {
             />
           )}
 
-          {/* Dates */}
           <div className="grid grid-cols-2 gap-4">
             <Input label={tr.ganttStartDate} type="date" value={form.start_date} disabled={!canEdit}
               onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
@@ -524,7 +592,6 @@ export function ProductionGantt({ canEdit }: Props) {
               error={dateError ? 'Must be ≥ start date' : undefined} />
           </div>
 
-          {/* Hours + Quantity */}
           <div className="grid grid-cols-2 gap-4">
             <Input label={tr.estimatedHours} type="number" min="0" step="0.5"
               value={form.estimated_hours} disabled={!canEdit} placeholder="0"
