@@ -387,6 +387,26 @@ export const t = {
     reorder: 'Reorder',
     savedOk: 'Saved successfully',
     quickActions: 'Quick Actions',
+
+    // Production Gantt
+    productionPlan: 'Production Plan',
+    scheduledOrders: 'Scheduled Orders',
+    totalHours: 'Total Hours',
+    totalPieces: 'Total Pieces',
+    activeLines: 'Active Lines',
+    line: 'Line',
+    addLine: 'Add Line',
+    deleteLine: 'Delete Line',
+    addAssignment: 'Add Assignment',
+    editAssignment: 'Edit Assignment',
+    noLines: 'No production lines yet — add one to start planning.',
+    clickToRename: 'Click to rename',
+    ganttOrderLabel: 'Order',
+    customOrderName: 'Custom Label',
+    ganttStartDate: 'Start Date',
+    ganttEndDate: 'End Date',
+    estimatedHours: 'Est. Hours',
+    assignmentQty: 'Quantity (pcs)',
   },
 
   ar: {
@@ -759,6 +779,26 @@ export const t = {
     reorder: 'إعادة طلب',
     savedOk: 'تم الحفظ بنجاح',
     quickActions: 'إجراءات سريعة',
+
+    // Production Gantt
+    productionPlan: 'خطة الإنتاج',
+    scheduledOrders: 'الطلبات المجدولة',
+    totalHours: 'إجمالي الساعات',
+    totalPieces: 'إجمالي القطع',
+    activeLines: 'خطوط نشطة',
+    line: 'خط',
+    addLine: 'إضافة خط',
+    deleteLine: 'حذف الخط',
+    addAssignment: 'إضافة تكليف',
+    editAssignment: 'تعديل التكليف',
+    noLines: 'لا توجد خطوط إنتاج بعد — أضف خطاً لبدء التخطيط.',
+    clickToRename: 'اضغط لإعادة التسمية',
+    ganttOrderLabel: 'الطلب',
+    customOrderName: 'تسمية مخصصة',
+    ganttStartDate: 'تاريخ البدء',
+    ganttEndDate: 'تاريخ الانتهاء',
+    estimatedHours: 'ساعات تقديرية',
+    assignmentQty: 'الكمية (قطعة)',
   },
 } as const
 

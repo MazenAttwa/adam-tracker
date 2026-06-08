@@ -201,6 +201,27 @@ export interface MonthClose {
   closed_at: string
 }
 
+export interface ProductionLine {
+  id: string
+  name: string
+  display_order: number
+  created_by: string | null
+  created_at: string
+}
+
+export interface ProductionAssignment {
+  id: string
+  line_id: string
+  order_id: string | null
+  order_name: string
+  start_date: string
+  end_date: string
+  estimated_hours: number
+  quantity: number
+  created_by: string | null
+  created_at: string
+}
+
 export type RetailerType = 'retail' | 'wholesale'
 export type DeliveryStatus = 'pending' | 'out_for_delivery' | 'delivered' | 'returned'
 
