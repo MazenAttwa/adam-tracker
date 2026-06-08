@@ -1,5 +1,7 @@
 'use client'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/contexts/LanguageContext'
 import { Badge } from '@/components/ui/Badge'
 import { STAGE_COLORS, STATUS_COLORS, STAGE_ORDER } from '@/lib/stageConfig'
@@ -16,6 +18,24 @@ interface OrderCardProps {
 export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProps) {
   const { tr, lang } = useLang()
   const stageIndex = STAGE_ORDER[order.current_stage]
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    const supabase = createClient()
+    supabase
+      .from('order_photos')
+      .select('file_path')
+      .eq('order_id', order.id)
+      .order('uploaded_at', { ascending: true })
+      .limit(1)
+      .then(({ data }) => {
+        if (!mounted || !data || data.length === 0) return
+        const { data: urlData } = supabase.storage.from('product-photos').getPublicUrl(data[0].file_path)
+        setPhotoUrl(urlData.publicUrl)
+      })
+    return () => { mounted = false }
+  }, [order.id])
 
   const daysSinceUpdate = Math.floor(
     (Date.now() - new Date(order.updated_at).getTime()) / 86_400_000
@@ -71,19 +91,38 @@ export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProp
 
       <Link href={`/orders/${order.id}`}
         className={`block rounded-xl border shadow-sm hover:shadow-md hover:border-[#c9a84c]/40 transition-all p-4 group ${cardBorder} ${onDragHandleDown ? 'pl-8' : ''}`}>
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div>
-            <p className="font-semibold text-[#0f1b35] group-hover:text-[#c9a84c] transition-colors">
-              {order.order_number}
-            </p>
-            <p className="text-sm text-gray-600 mt-0.5">{order.customer_name}</p>
-            {order.customer_phone && (
-              <p className="text-xs text-gray-400">{order.customer_phone}</p>
+        <div className="flex items-start gap-3 mb-3">
+          {/* 48x48 product photo or initials placeholder */}
+          <div className="flex-shrink-0">
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photoUrl}
+                alt=""
+                className="w-12 h-12 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-lg bg-[#0f1b35]/10 flex items-center justify-center">
+                <span className="text-base font-bold text-[#0f1b35]/40 select-none">
+                  {order.order_number.charAt(0).toUpperCase()}
+                </span>
+              </div>
             )}
           </div>
-          <Badge className={STATUS_COLORS[order.status]}>
-            {tr[order.status]}
-          </Badge>
+          <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-semibold text-[#0f1b35] group-hover:text-[#c9a84c] transition-colors truncate">
+                {order.order_number}
+              </p>
+              <p className="text-sm text-gray-600 mt-0.5">{order.customer_name}</p>
+              {order.customer_phone && (
+                <p className="text-xs text-gray-400">{order.customer_phone}</p>
+              )}
+            </div>
+            <Badge className={STATUS_COLORS[order.status]}>
+              {tr[order.status]}
+            </Badge>
+          </div>
         </div>
 
         {/* Stage progress mini */}

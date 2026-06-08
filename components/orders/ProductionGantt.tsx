@@ -61,6 +61,7 @@ export function ProductionGantt({
   const [lines, setLines] = useState<ProductionLine[]>([])
   const [assignments, setAssignments] = useState<ProductionAssignment[]>([])
   const [finishingOrders, setFinishingOrders] = useState<FinishingOrder[]>([])
+  const [orderPhotos, setOrderPhotos] = useState<Record<string, string | null>>({})
   const [dataLoaded, setDataLoaded] = useState(false)
 
   const [editingLineId, setEditingLineId] = useState<string | null>(null)
@@ -93,10 +94,37 @@ export function ProductionGantt({
         .eq('status', 'active'),
     ])
     const fetchedLines = (linesRes.data ?? []) as ProductionLine[]
+    const fetchedOrders = (ordersRes.data ?? []) as FinishingOrder[]
     setLines(fetchedLines)
     setAssignments((assignmentsRes.data ?? []) as ProductionAssignment[])
-    setFinishingOrders((ordersRes.data ?? []) as FinishingOrder[])
+    setFinishingOrders(fetchedOrders)
     setDataLoaded(true)
+
+    // Fetch one photo per finishing order
+    const orderIds = fetchedOrders.map(o => o.id)
+    if (orderIds.length > 0) {
+      const { data: photosData } = await supabase
+        .from('order_photos')
+        .select('order_id, file_path')
+        .in('order_id', orderIds)
+        .order('uploaded_at', { ascending: true })
+      const map: Record<string, string | null> = {}
+      if (photosData) {
+        for (const p of photosData as { order_id: string; file_path: string }[]) {
+          if (!map[p.order_id]) {
+            const { data } = supabase.storage.from('product-photos').getPublicUrl(p.file_path)
+            map[p.order_id] = data.publicUrl
+          }
+        }
+      }
+      for (const id of orderIds) {
+        if (!(id in map)) map[id] = null
+      }
+      setOrderPhotos(map)
+    } else {
+      setOrderPhotos({})
+    }
+
     return fetchedLines
   }
 
@@ -496,6 +524,9 @@ export function ProductionGantt({
                           a.quantity       ? `${a.quantity} pcs` : '',
                           a.estimated_hours ? `${a.estimated_hours}h` : '',
                         ].filter(Boolean).join(' · ')
+                        const label = barLabel(a, bw)
+                        const showPhoto = bw >= 40
+                        const barPhotoUrl = a.order_id ? (orderPhotos[a.order_id] ?? null) : null
                         return (
                           <button
                             key={a.id}
@@ -510,10 +541,20 @@ export function ProductionGantt({
                               borderRadius: 5,
                               zIndex: 20,
                             }}
-                            className="flex items-center px-1.5 text-white text-xs truncate hover:brightness-110 active:brightness-90 transition-all shadow-sm focus:outline-none"
+                            className="flex items-center gap-1 px-1.5 text-white text-xs overflow-hidden hover:brightness-110 active:brightness-90 transition-all shadow-sm focus:outline-none"
                             title={tooltip}
                           >
-                            {barLabel(a, bw)}
+                            {showPhoto && (
+                              barPhotoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={barPhotoUrl} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                              ) : (
+                                <span className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center bg-white/20 text-[8px] font-bold leading-none">
+                                  {a.order_name.charAt(0).toUpperCase()}
+                                </span>
+                              )
+                            )}
+                            {label && <span className="truncate">{label}</span>}
                           </button>
                         )
                       })}
@@ -555,6 +596,32 @@ export function ProductionGantt({
         }
       >
         <div className="space-y-4">
+          {/* Order photo shown in modal header when a finishing order is selected */}
+          {form.order_id && (
+            <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+              {orderPhotos[form.order_id] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={orderPhotos[form.order_id]!}
+                  alt=""
+                  className="w-12 h-12 rounded-xl object-cover flex-shrink-0 shadow-sm"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-[#0f1b35]/10 flex items-center justify-center flex-shrink-0">
+                  <span className="text-lg font-bold text-[#0f1b35]/40 select-none">
+                    {form.order_name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="font-semibold text-[#0f1b35] text-sm truncate">{form.order_name}</p>
+                <p className="text-xs text-gray-400">
+                  {selectedLineId && lines.find(l => l.id === selectedLineId)?.name}
+                </p>
+              </div>
+            </div>
+          )}
+
           <Select
             label={tr.ganttOrderLabel}
             value={form.order_id}
