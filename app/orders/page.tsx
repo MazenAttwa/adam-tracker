@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { OrderCard } from '@/components/orders/OrderCard'
+import { ProductionGantt } from '@/components/orders/ProductionGantt'
 import { Badge } from '@/components/ui/Badge'
 import { STAGES, STAGE_COLORS } from '@/lib/stageConfig'
 import { cn } from '@/lib/utils'
@@ -148,6 +149,13 @@ export default function OrdersPage() {
               ))}
             </div>
           </>
+        )}
+
+        {/* Production planning Gantt — only when Finishing tab is active */}
+        {stageFilter === 'finishing' && (
+          <ProductionGantt
+            canEdit={profile?.role === 'manager' || profile?.role === 'worker'}
+          />
         )}
       </main>
     </div>

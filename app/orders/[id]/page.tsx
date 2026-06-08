@@ -8,7 +8,6 @@ import { Navbar } from '@/components/layout/Navbar'
 import { StageProgress } from '@/components/orders/StageProgress'
 import { StageForm } from '@/components/orders/StageForm'
 import { OrderMaterials } from '@/components/orders/OrderMaterials'
-import { ProductionGantt } from '@/components/orders/ProductionGantt'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { ConfirmModal } from '@/components/ui/Modal'
@@ -292,12 +291,6 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
             <OrderMaterials
               orderId={id}
               canEdit={canEditStage('draft')}
-            />
-          )}
-          {activeTab === 'finishing' && (
-            <ProductionGantt
-              orderId={id}
-              canEdit={profile?.role === 'manager' || profile?.role === 'worker'}
             />
           )}
         </div>
