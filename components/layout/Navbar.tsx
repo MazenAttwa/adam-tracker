@@ -50,10 +50,10 @@ export function Navbar() {
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-0.5">
             {navLinks.map(l => (
               <Link key={l.href} href={l.href}
-                className="px-3 py-2 rounded-lg text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-colors">
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap">
                 {l.label}
               </Link>
             ))}
@@ -103,7 +103,7 @@ export function Navbar() {
 
             {/* Mobile hamburger */}
             <button
-              className="md:hidden p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+              className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 transition-colors"
               onClick={() => setMenuOpen(!menuOpen)}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -115,7 +115,7 @@ export function Navbar() {
 
         {/* Mobile nav */}
         {menuOpen && (
-          <div className="md:hidden pb-3 border-t border-white/10 mt-1 pt-2 flex flex-col gap-1">
+          <div className="lg:hidden pb-3 border-t border-white/10 mt-1 pt-2 flex flex-col gap-1">
             {navLinks.map(l => (
               <Link key={l.href} href={l.href}
                 onClick={() => setMenuOpen(false)}

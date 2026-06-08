@@ -382,6 +382,11 @@ export const t = {
     lowStockAlert: 'Low Stock Alert',
     noLowStock: 'All materials are well-stocked.',
     viewAll: 'View all →',
+
+    // System improvements
+    reorder: 'Reorder',
+    savedOk: 'Saved successfully',
+    quickActions: 'Quick Actions',
   },
 
   ar: {
@@ -749,6 +754,11 @@ export const t = {
     lowStockAlert: 'تنبيه المخزون المنخفض',
     noLowStock: 'مستويات المخزون طبيعية.',
     viewAll: 'عرض الكل →',
+
+    // System improvements
+    reorder: 'إعادة طلب',
+    savedOk: 'تم الحفظ بنجاح',
+    quickActions: 'إجراءات سريعة',
   },
 } as const
 

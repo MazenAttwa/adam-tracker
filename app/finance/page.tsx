@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
+import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Input'
@@ -111,6 +112,7 @@ const emptyRevForm = (): RevenueForm => ({ date: todayStr(), type: 'sales', amou
 export default function FinancePage() {
   const { profile, loading } = useAuth()
   const { tr, lang } = useLang()
+  const { showToast } = useToast()
   const router = useRouter()
   const supabase = createClient()
 
@@ -268,6 +270,26 @@ export default function FinancePage() {
       : await supabase.from('expenses').insert({ ...payload, created_by: profile?.id })
 
     if (error) { setExpError(error.message); setExpSaving(false); return }
+
+    // Auto-create vendor transaction when a new expense is linked to a vendor
+    if (!editingExp && expForm.vendor_id) {
+      const vendor = vendors.find(v => v.id === expForm.vendor_id)
+      if (vendor) {
+        await supabase.from('vendor_transactions').insert({
+          vendor_id: expForm.vendor_id,
+          type: 'purchase',
+          amount: amt,
+          notes: `Expense: ${expForm.description.trim()}`,
+          created_by: profile?.id,
+        })
+        await supabase.from('vendors').update({
+          balance: vendor.balance + amt,
+          updated_at: new Date().toISOString(),
+        }).eq('id', expForm.vendor_id)
+      }
+    }
+
+    showToast(tr.savedOk)
     setExpSaving(false); setShowExpForm(false); fetchAll()
   }
 
@@ -310,6 +332,7 @@ export default function FinancePage() {
       : await supabase.from('revenue').insert({ ...payload, created_by: profile?.id })
 
     if (error) { setRevError(error.message); setRevSaving(false); return }
+    showToast(tr.savedOk)
     setRevSaving(false); setShowRevForm(false); fetchAll()
   }
 

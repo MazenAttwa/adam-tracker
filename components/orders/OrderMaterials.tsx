@@ -70,6 +70,11 @@ export function OrderMaterials({ orderId, canEdit }: OrderMaterialsProps) {
   const unitLabel = (u: string) =>
     u === 'meter' ? tr.meter : u === 'kg' ? tr.kg : tr.piece
 
+  const estimatedCost = orderMaterials.reduce(
+    (s, om) => s + om.quantity_needed * (om.materials?.cost_per_unit ?? 0),
+    0
+  )
+
   const linkedIds = orderMaterials.map(om => om.material_id)
   const availableMaterials = allMaterials.filter(m => !linkedIds.includes(m.id))
 
@@ -184,6 +189,16 @@ export function OrderMaterials({ orderId, canEdit }: OrderMaterialsProps) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Estimated cost footer */}
+      {orderMaterials.length > 0 && estimatedCost > 0 && (
+        <div className="mt-3 flex items-center justify-between px-4 py-2.5 bg-[#0f1b35]/5 rounded-xl border border-[#0f1b35]/10">
+          <span className="text-sm font-medium text-[#0f1b35]">{tr.estimatedCost}</span>
+          <span className="text-sm font-bold tabular-nums text-[#0f1b35]">
+            {estimatedCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
         </div>
       )}
     </div>

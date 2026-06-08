@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
+import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Input'
@@ -51,6 +52,7 @@ const DELIVERY_COLORS: Record<DeliveryStatus, string> = {
 export default function SalesPage() {
   const { profile, loading } = useAuth()
   const { tr, lang } = useLang()
+  const { showToast } = useToast()
   const router = useRouter()
   const supabase = createClient()
 
@@ -229,8 +231,17 @@ export default function SalesPage() {
           updated_at: new Date().toISOString(),
         }).eq('id', form.retailer_id)
       }
+
+      // Mark linked order as completed
+      if (form.order_id) {
+        await supabase.from('orders').update({
+          status: 'completed',
+          updated_at: new Date().toISOString(),
+        }).eq('id', form.order_id)
+      }
     }
 
+    showToast(tr.savedOk)
     setSaving(false)
     setShowForm(false)
     Promise.all([fetchSales(), fetchRetailers()])

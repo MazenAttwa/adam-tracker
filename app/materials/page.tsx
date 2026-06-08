@@ -4,12 +4,13 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
+import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal, ConfirmModal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
-import type { Material, MaterialUnit } from '@/lib/types'
+import type { Material, MaterialUnit, Vendor } from '@/lib/types'
 
 const UNITS: MaterialUnit[] = ['meter', 'kg', 'piece']
 
@@ -31,10 +32,12 @@ const emptyForm: MaterialForm = {
 export default function MaterialsPage() {
   const { profile, loading } = useAuth()
   const { tr, lang } = useLang()
+  const { showToast } = useToast()
   const router = useRouter()
   const supabase = createClient()
 
   const [materials, setMaterials] = useState<Material[]>([])
+  const [vendors, setVendors] = useState<Vendor[]>([])
   const [fetching, setFetching] = useState(true)
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -45,11 +48,19 @@ export default function MaterialsPage() {
   const [deleting, setDeleting] = useState(false)
   const [formError, setFormError] = useState('')
 
+  // Reorder state
+  const [reorderMaterial, setReorderMaterial] = useState<Material | null>(null)
+  const [reorderQty, setReorderQty] = useState('')
+  const [reorderVendorId, setReorderVendorId] = useState('')
+  const [reorderAmount, setReorderAmount] = useState('')
+  const [reordering, setReordering] = useState(false)
+
   useEffect(() => {
     if (loading) return
     if (!profile) { router.push('/login'); return }
     if (profile.role === 'customer') { router.push('/my-orders'); return }
     fetchMaterials()
+    fetchVendors()
   }, [profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchMaterials() {
@@ -59,6 +70,11 @@ export default function MaterialsPage() {
       .order('name', { ascending: true })
     setMaterials(data ?? [])
     setFetching(false)
+  }
+
+  async function fetchVendors() {
+    const { data } = await supabase.from('vendors').select('*').order('name')
+    setVendors(data ?? [])
   }
 
   function openAdd() {
@@ -112,6 +128,7 @@ export default function MaterialsPage() {
       if (error) { setFormError(error.message); setSaving(false); return }
     }
 
+    showToast(tr.savedOk)
     setSaving(false)
     setShowForm(false)
     fetchMaterials()
@@ -124,6 +141,58 @@ export default function MaterialsPage() {
     setDeleting(false)
     setDeleteTarget(null)
     fetchMaterials()
+  }
+
+  function openReorder(m: Material) {
+    setReorderMaterial(m)
+    setReorderQty('')
+    setReorderVendorId('')
+    setReorderAmount('')
+  }
+
+  async function handleReorder() {
+    if (!reorderMaterial) return
+    const qty = parseFloat(reorderQty)
+    if (!qty || qty <= 0) return
+    const amt = parseFloat(reorderAmount) || 0
+    setReordering(true)
+
+    await supabase.from('stock_movements').insert({
+      material_id: reorderMaterial.id,
+      type: 'in',
+      quantity: qty,
+      notes: `Reorder: ${reorderMaterial.name}`,
+      vendor_id: reorderVendorId || null,
+      created_by: profile?.id,
+    })
+
+    await supabase.from('materials').update({
+      current_quantity: reorderMaterial.current_quantity + qty,
+      updated_at: new Date().toISOString(),
+    }).eq('id', reorderMaterial.id)
+
+    if (reorderVendorId && amt > 0) {
+      const vendor = vendors.find(v => v.id === reorderVendorId)
+      if (vendor) {
+        await supabase.from('vendor_transactions').insert({
+          vendor_id: reorderVendorId,
+          type: 'purchase',
+          amount: amt,
+          notes: `Reorder: ${reorderMaterial.name} × ${qty}`,
+          created_by: profile?.id,
+        })
+        await supabase.from('vendors').update({
+          balance: vendor.balance + amt,
+          updated_at: new Date().toISOString(),
+        }).eq('id', reorderVendorId)
+      }
+    }
+
+    setReordering(false)
+    setReorderMaterial(null)
+    fetchMaterials()
+    fetchVendors()
+    showToast(tr.savedOk)
   }
 
   const unitLabel = (u: MaterialUnit) =>
@@ -250,7 +319,13 @@ export default function MaterialsPage() {
                         </td>
                         {profile?.role === 'manager' && (
                           <td className="px-5 py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-3">
+                              {isLow && (
+                                <button onClick={() => openReorder(m)}
+                                  className="text-xs text-amber-600 hover:underline font-medium">
+                                  {tr.reorder}
+                                </button>
+                              )}
                               <button onClick={() => openEdit(m)}
                                 className="text-xs text-[#0f1b35] hover:underline font-medium">
                                 {tr.edit}
@@ -317,6 +392,50 @@ export default function MaterialsPage() {
         loading={deleting}
         danger
       />
+
+      {/* Reorder modal */}
+      <Modal
+        open={!!reorderMaterial}
+        onClose={() => setReorderMaterial(null)}
+        title={`${tr.reorder}: ${reorderMaterial?.name ?? ''}`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setReorderMaterial(null)} disabled={reordering}>{tr.cancel}</Button>
+            <Button onClick={handleReorder} loading={reordering}>{tr.save}</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label={tr.quantityNeeded}
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={reorderQty}
+            onChange={e => setReorderQty(e.target.value)}
+          />
+          <Select
+            label={tr.linkVendor}
+            value={reorderVendorId}
+            onChange={e => setReorderVendorId(e.target.value)}
+          >
+            <option value="">—</option>
+            {vendors.map(v => (
+              <option key={v.id} value={v.id}>{v.name}</option>
+            ))}
+          </Select>
+          {reorderVendorId && (
+            <Input
+              label={tr.purchaseAmount}
+              type="number"
+              min="0"
+              step="0.01"
+              value={reorderAmount}
+              onChange={e => setReorderAmount(e.target.value)}
+            />
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

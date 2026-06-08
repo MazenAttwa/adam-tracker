@@ -15,6 +15,20 @@ export function OrderCard({ order }: OrderCardProps) {
   const { tr, lang } = useLang()
   const stageIndex = STAGE_ORDER[order.current_stage]
 
+  const daysSinceUpdate = Math.floor(
+    (Date.now() - new Date(order.updated_at).getTime()) / 86_400_000
+  )
+  const cardBorder =
+    order.status === 'completed'
+      ? 'border-green-200 bg-green-50/40'
+      : order.status === 'cancelled'
+      ? 'border-gray-200 opacity-60'
+      : daysSinceUpdate > 30
+      ? 'border-red-200 bg-red-50/30'
+      : daysSinceUpdate > 7
+      ? 'border-amber-200 bg-amber-50/30'
+      : 'border-gray-100 bg-white'
+
   const stageLabels: Record<Stage, string> = {
     draft: tr.draft,
     preparation: tr.preparation,
@@ -25,7 +39,7 @@ export function OrderCard({ order }: OrderCardProps) {
 
   return (
     <Link href={`/orders/${order.id}`}
-      className="block bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-[#c9a84c]/40 transition-all p-4 group">
+      className={`block rounded-xl border shadow-sm hover:shadow-md hover:border-[#c9a84c]/40 transition-all p-4 group ${cardBorder}`}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <p className="font-semibold text-[#0f1b35] group-hover:text-[#c9a84c] transition-colors">
