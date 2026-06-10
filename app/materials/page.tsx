@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
@@ -9,6 +9,7 @@ import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal, ConfirmModal } from '@/components/ui/Modal'
+import { MaterialPhotoUpload } from '@/components/materials/MaterialPhotoUpload'
 import { formatDate } from '@/lib/utils'
 import type { Material, MaterialUnit, Vendor } from '@/lib/types'
 
@@ -48,6 +49,14 @@ export default function MaterialsPage() {
   const [deleting, setDeleting] = useState(false)
   const [formError, setFormError] = useState('')
 
+  // Photo map: materialId → first file_path (for table thumbnails)
+  const [photoUrlMap, setPhotoUrlMap] = useState<Record<string, string>>({})
+
+  // Pending photo for the Add modal (uploaded after material is created)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
   // Reorder state
   const [reorderMaterial, setReorderMaterial] = useState<Material | null>(null)
   const [reorderQty, setReorderQty] = useState('')
@@ -68,8 +77,31 @@ export default function MaterialsPage() {
       .from('materials')
       .select('*')
       .order('name', { ascending: true })
-    setMaterials(data ?? [])
+    const list = data ?? []
+    setMaterials(list)
     setFetching(false)
+    if (list.length > 0) {
+      await fetchPhotoMap(list.map(m => m.id))
+    }
+  }
+
+  async function fetchPhotoMap(ids: string[]) {
+    if (!ids.length) { setPhotoUrlMap({}); return }
+    const { data } = await supabase
+      .from('material_photos')
+      .select('material_id, file_path')
+      .in('material_id', ids)
+      .order('uploaded_at', { ascending: true })
+    const map: Record<string, string> = {}
+    for (const p of (data ?? []) as Array<{ material_id: string; file_path: string }>) {
+      if (!map[p.material_id]) map[p.material_id] = p.file_path
+    }
+    setPhotoUrlMap(map)
+  }
+
+  function getPhotoUrl(filePath: string): string {
+    const { data } = supabase.storage.from('material-photos').getPublicUrl(filePath)
+    return data.publicUrl
   }
 
   async function fetchVendors() {
@@ -77,10 +109,18 @@ export default function MaterialsPage() {
     setVendors(data ?? [])
   }
 
+  function clearPendingPhoto() {
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview)
+    setPendingFile(null)
+    setPendingPreview(null)
+    if (photoInputRef.current) photoInputRef.current.value = ''
+  }
+
   function openAdd() {
     setEditing(null)
     setForm(emptyForm)
     setFormError('')
+    clearPendingPhoto()
     setShowForm(true)
   }
 
@@ -96,7 +136,17 @@ export default function MaterialsPage() {
       notes: m.notes ?? '',
     })
     setFormError('')
+    clearPendingPhoto()
     setShowForm(true)
+  }
+
+  function handleCloseModal() {
+    setShowForm(false)
+    clearPendingPhoto()
+    // Refresh photo map to pick up any changes made in the edit modal
+    if (materials.length > 0) {
+      fetchPhotoMap(materials.map(m => m.id))
+    }
   }
 
   function set(k: keyof MaterialForm, v: string) {
@@ -124,13 +174,35 @@ export default function MaterialsPage() {
       const { error } = await supabase.from('materials').update(payload).eq('id', editing.id)
       if (error) { setFormError(error.message); setSaving(false); return }
     } else {
-      const { error } = await supabase.from('materials').insert({ ...payload, created_by: profile?.id })
+      const { data: newMat, error } = await supabase
+        .from('materials')
+        .insert({ ...payload, created_by: profile?.id })
+        .select()
+        .single()
       if (error) { setFormError(error.message); setSaving(false); return }
+
+      // Upload pending photo if selected during Add flow
+      if (pendingFile && newMat) {
+        const ext = pendingFile.name.split('.').pop() ?? 'jpg'
+        const path = `${newMat.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        const { error: storageErr } = await supabase.storage
+          .from('material-photos')
+          .upload(path, pendingFile, { contentType: pendingFile.type })
+        if (!storageErr) {
+          await supabase.from('material_photos').insert({
+            material_id: newMat.id,
+            file_path: path,
+            file_name: pendingFile.name,
+            uploaded_by: profile?.id,
+          })
+        }
+      }
     }
 
     showToast(tr.savedOk)
     setSaving(false)
     setShowForm(false)
+    clearPendingPhoto()
     fetchMaterials()
   }
 
@@ -273,6 +345,7 @@ export default function MaterialsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="text-left px-3 py-3 font-medium text-gray-600 w-14">{tr.photo}</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.materialName}</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.materialCode}</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.unit}</th>
@@ -288,8 +361,24 @@ export default function MaterialsPage() {
                 <tbody>
                   {filtered.map(m => {
                     const isLow = m.current_quantity <= m.minimum_quantity
+                    const thumbPath = photoUrlMap[m.id]
+                    const initials = m.name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
                     return (
                       <tr key={m.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${isLow ? 'bg-red-50/40' : ''}`}>
+                        <td className="px-3 py-3">
+                          {thumbPath ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={getPhotoUrl(thumbPath)}
+                              alt={m.name}
+                              className="w-10 h-10 rounded-lg object-cover border border-gray-200"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-[#0f1b35] flex items-center justify-center text-white text-xs font-bold select-none">
+                              {initials}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-5 py-3.5 font-medium text-[#0f1b35]">{m.name}</td>
                         <td className="px-5 py-3.5">
                           <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">{m.code}</span>
@@ -350,11 +439,11 @@ export default function MaterialsPage() {
       {/* Add/Edit Modal */}
       <Modal
         open={showForm}
-        onClose={() => setShowForm(false)}
+        onClose={handleCloseModal}
         title={editing ? tr.editMaterial : tr.addMaterial}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setShowForm(false)} disabled={saving}>{tr.cancel}</Button>
+            <Button variant="ghost" onClick={handleCloseModal} disabled={saving}>{tr.cancel}</Button>
             <Button onClick={handleSave} loading={saving}>{tr.save}</Button>
           </>
         }
@@ -377,6 +466,55 @@ export default function MaterialsPage() {
               value={form.cost_per_unit} onChange={e => set('cost_per_unit', e.target.value)} />
           </div>
           <Textarea label={tr.materialNotes} value={form.notes} onChange={e => set('notes', e.target.value)} rows={2} />
+
+          {/* Photo upload — full component for Edit, simple picker for Add */}
+          {editing ? (
+            <MaterialPhotoUpload materialId={editing.id} canEdit={profile?.role === 'manager'} />
+          ) : (
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-[#0f1b35]">{tr.materialPhotos}</span>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  clearPendingPhoto()
+                  setPendingFile(file)
+                  setPendingPreview(URL.createObjectURL(file))
+                }}
+              />
+              {pendingPreview ? (
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={pendingPreview} alt="preview" className="w-16 h-16 rounded-xl object-cover border border-gray-200" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[#0f1b35] font-medium truncate">{pendingFile?.name}</p>
+                    <button
+                      type="button"
+                      onClick={clearPendingPhoto}
+                      className="text-xs text-red-500 hover:underline mt-0.5"
+                    >
+                      {tr.delete}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  className="w-full border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-[#c9a84c] hover:bg-amber-50/30 transition-colors"
+                >
+                  <svg className="mx-auto h-7 w-7 text-gray-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-xs text-gray-400">{tr.clickToUploadPhotos}</p>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
 

@@ -90,6 +90,15 @@ export interface OrderPhoto {
   uploaded_at: string
 }
 
+export interface MaterialPhoto {
+  id: string
+  material_id: string
+  file_path: string
+  file_name: string
+  uploaded_by: string | null
+  uploaded_at: string
+}
+
 export type MaterialUnit = 'meter' | 'kg' | 'piece'
 export type StockMovementType = 'in' | 'out'
 

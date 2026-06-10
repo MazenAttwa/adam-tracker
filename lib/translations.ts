@@ -210,6 +210,8 @@ export const t = {
     purchaseAmount: 'Purchase Amount',
 
     // Materials module
+    materialPhotos: 'Material Photos',
+    photo: 'Photo',
     materialName: 'Material Name',
     materialCode: 'Code',
     unit: 'Unit',
@@ -602,6 +604,8 @@ export const t = {
     purchaseAmount: 'مبلغ الشراء',
 
     // Materials module
+    materialPhotos: 'صور المادة',
+    photo: 'الصورة',
     materialName: 'اسم المادة',
     materialCode: 'الكود',
     unit: 'الوحدة',
