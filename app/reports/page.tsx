@@ -27,7 +27,7 @@ interface MaterialUsage {
 
 type ReportTab = 'pnl' | 'orders' | 'materials' | 'retailers'
 
-const STAGES: Stage[] = ['draft', 'preparation', 'cutting_printing', 'finishing', 'submitted']
+const STAGES: Stage[] = ['draft', 'preparation', 'cutting', 'printing', 'finishing', 'submitted']
 
 export default function ReportsPage() {
   const { profile, loading } = useAuth()
@@ -166,7 +166,8 @@ export default function ReportsPage() {
   const stageLabels: Record<Stage, string> = {
     draft: tr.draft,
     preparation: tr.preparation,
-    cutting_printing: tr.cutting_printing,
+    cutting: tr.cutting,
+    printing: tr.printing,
     finishing: tr.finishing,
     submitted: tr.submitted,
   }

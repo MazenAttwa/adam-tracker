@@ -82,7 +82,8 @@ export default function DashboardPage() {
   const stageLabels: Record<Stage, string> = {
     draft: tr.draft,
     preparation: tr.preparation,
-    cutting_printing: tr.cutting_printing,
+    cutting: tr.cutting,
+    printing: tr.printing,
     finishing: tr.finishing,
     submitted: tr.submitted,
   }
@@ -211,7 +212,7 @@ export default function DashboardPage() {
         {profile?.role === 'manager' && (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
             <h2 className="font-semibold text-[#0f1b35] mb-4">{tr.pipeline}</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {STAGES.map(stage => (
                 <Link key={stage} href={`/orders?stage=${stage}`}
                   className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 hover:border-[#c9a84c]/40 hover:bg-[#c9a84c]/5 transition-all cursor-pointer">

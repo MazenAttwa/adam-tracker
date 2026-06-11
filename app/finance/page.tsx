@@ -14,16 +14,17 @@ import type { Expense, Revenue, MonthClose, Vendor, Order, ExpenseCategory, Reve
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const EXPENSE_CATS: ExpenseCategory[] = ['salary', 'rent', 'utilities', 'materials', 'transport', 'other']
+const EXPENSE_CATS: ExpenseCategory[] = ['salary', 'rent', 'utilities', 'materials', 'transport', 'manufacturing', 'other']
 const REVENUE_TYPES: RevenueType[] = ['sales', 'delivery_fees', 'other']
 
 const CAT_COLOR: Record<ExpenseCategory, string> = {
-  salary:    'bg-blue-100   text-blue-700   border-blue-200',
-  rent:      'bg-purple-100 text-purple-700 border-purple-200',
-  utilities: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  materials: 'bg-orange-100 text-orange-700 border-orange-200',
-  transport: 'bg-cyan-100   text-cyan-700   border-cyan-200',
-  other:     'bg-gray-100   text-gray-700   border-gray-200',
+  salary:        'bg-blue-100   text-blue-700   border-blue-200',
+  rent:          'bg-purple-100 text-purple-700 border-purple-200',
+  utilities:     'bg-yellow-100 text-yellow-700 border-yellow-200',
+  materials:     'bg-orange-100 text-orange-700 border-orange-200',
+  transport:     'bg-cyan-100   text-cyan-700   border-cyan-200',
+  manufacturing: 'bg-rose-100   text-rose-700   border-rose-200',
+  other:         'bg-gray-100   text-gray-700   border-gray-200',
 }
 
 const REV_COLOR: Record<RevenueType, string> = {
@@ -225,8 +226,9 @@ export default function FinancePage() {
 
   const catLabel = (c: ExpenseCategory): string => ({
     salary: tr.salary, rent: tr.rent, utilities: tr.utilities,
-    materials: tr.materials, transport: tr.transport, other: tr.other,
-  }[c])
+    materials: tr.materials, transport: tr.transport,
+    manufacturing: tr.manufacturing, other: tr.other,
+  }[c] ?? c)
 
   const revLabel = (t: RevenueType): string => ({
     sales: tr.sales, delivery_fees: tr.deliveryFees, other: tr.other,

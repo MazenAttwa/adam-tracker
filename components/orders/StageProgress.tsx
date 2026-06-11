@@ -15,18 +15,11 @@ export function StageProgress({ currentStage, onStageClick, activeTab, completed
   const { tr } = useLang()
   const currentIndex = STAGE_ORDER[currentStage]
 
-  const stageKeys: Record<Stage, keyof typeof tr> = {
-    draft: 'draft',
-    preparation: 'preparation',
-    cutting_printing: 'cutting_printing',
-    finishing: 'finishing',
-    submitted: 'submitted',
-  }
-
   const stageShortKeys: Record<Stage, string> = {
     draft: tr.draft_short,
     preparation: tr.preparation_short,
-    cutting_printing: tr.cutting_printing_short,
+    cutting: tr.cutting_short,
+    printing: tr.printing_short,
     finishing: tr.finishing_short,
     submitted: tr.submitted_short,
   }
@@ -52,7 +45,7 @@ export function StageProgress({ currentStage, onStageClick, activeTab, completed
                 )}
               >
                 <div className={cn(
-                  'w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all',
+                  'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all',
                   isDone && 'bg-green-500 border-green-500 text-white',
                   isCurrent && !isDone && 'bg-[#c9a84c] border-[#c9a84c] text-white shadow-md scale-110',
                   !isCurrent && !isDone && 'bg-white border-gray-300 text-gray-400',
@@ -76,7 +69,7 @@ export function StageProgress({ currentStage, onStageClick, activeTab, completed
 
               {i < STAGES.length - 1 && (
                 <div className={cn(
-                  'h-0.5 w-8 sm:w-12 mx-1 rounded transition-all',
+                  'h-0.5 w-6 sm:w-10 mx-0.5 rounded transition-all',
                   STAGE_ORDER[STAGES[i + 1]] <= currentIndex ? 'bg-green-400' : 'bg-gray-200'
                 )} />
               )}

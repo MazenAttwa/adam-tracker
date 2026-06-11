@@ -4,8 +4,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/contexts/LanguageContext'
 import { Badge } from '@/components/ui/Badge'
-import { STAGE_COLORS, STATUS_COLORS, STAGE_ORDER } from '@/lib/stageConfig'
-import { STAGES } from '@/lib/stageConfig'
+import { STAGE_COLORS, STATUS_COLORS, STAGE_ORDER, STAGES } from '@/lib/stageConfig'
 import { formatDate } from '@/lib/utils'
 import type { Order, Stage } from '@/lib/types'
 
@@ -54,7 +53,8 @@ export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProp
   const stageLabels: Record<Stage, string> = {
     draft: tr.draft,
     preparation: tr.preparation,
-    cutting_printing: tr.cutting_printing,
+    cutting: tr.cutting,
+    printing: tr.printing,
     finishing: tr.finishing,
     submitted: tr.submitted,
   }
@@ -77,7 +77,6 @@ export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProp
                      z-10 rounded-l-xl hover:bg-gray-50 transition-colors"
           title="Drag to assign to a production line"
         >
-          {/* 6-dot grip icon */}
           <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor">
             <circle cx="3" cy="3"  r="1.5"/>
             <circle cx="9" cy="3"  r="1.5"/>
@@ -92,15 +91,10 @@ export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProp
       <Link href={`/orders/${order.id}`}
         className={`block rounded-xl border shadow-sm hover:shadow-md hover:border-[#c9a84c]/40 transition-all p-4 group ${cardBorder} ${onDragHandleDown ? 'pl-8' : ''}`}>
         <div className="flex items-start gap-3 mb-3">
-          {/* 48x48 product photo or initials placeholder */}
           <div className="flex-shrink-0">
             {photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={photoUrl}
-                alt=""
-                className="w-12 h-12 rounded-lg object-cover"
-              />
+              <img src={photoUrl} alt="" className="w-12 h-12 rounded-lg object-cover" />
             ) : (
               <div className="w-12 h-12 rounded-lg bg-[#0f1b35]/10 flex items-center justify-center">
                 <span className="text-base font-bold text-[#0f1b35]/40 select-none">
@@ -125,7 +119,7 @@ export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProp
           </div>
         </div>
 
-        {/* Stage progress mini */}
+        {/* Stage progress mini dots */}
         <div className="flex items-center gap-1 mb-3">
           {STAGES.map((s, i) => (
             <div key={s} className="flex items-center gap-1">
@@ -135,7 +129,7 @@ export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProp
                 'bg-gray-200'
               }`} />
               {i < STAGES.length - 1 && (
-                <div className={`h-px w-4 sm:w-6 ${i < stageIndex ? 'bg-green-300' : 'bg-gray-200'}`} />
+                <div className={`h-px w-3 sm:w-4 ${i < stageIndex ? 'bg-green-300' : 'bg-gray-200'}`} />
               )}
             </div>
           ))}

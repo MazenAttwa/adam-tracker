@@ -1,5 +1,5 @@
 export type Role = 'manager' | 'worker' | 'customer'
-export type Stage = 'draft' | 'preparation' | 'cutting_printing' | 'finishing' | 'submitted'
+export type Stage = 'draft' | 'preparation' | 'cutting' | 'printing' | 'finishing' | 'submitted'
 export type OrderStatus = 'active' | 'completed' | 'cancelled'
 
 export interface Profile {
@@ -56,12 +56,31 @@ export interface PreparationData {
   estimated_cost?: number
 }
 
-export interface CuttingPrintingData {
-  cutting_date?: string
-  cutting_worker?: string
-  printing_type?: string
-  printing_details?: string
-  pieces_cut?: number
+export interface CuttingData {
+  cutting_cost_per_unit?: number
+  quantity_to_cut?: number
+  total_cutting_cost?: number
+  manufacturer_id?: string
+  manufacturer_name?: string
+  cutting_notes?: string
+}
+
+export interface PrintingData {
+  printing_cost_per_unit?: number
+  quantity_to_print?: number
+  total_printing_cost?: number
+  manufacturer_id?: string
+  manufacturer_name?: string
+  printing_location?: string
+  printing_notes?: string
+}
+
+export interface FinishingManufacturerRow {
+  manufacturer_id?: string
+  manufacturer_name?: string
+  quantity?: number
+  cost_per_unit?: number
+  subtotal?: number
 }
 
 export interface FinishingData {
@@ -71,6 +90,9 @@ export interface FinishingData {
   quality_check?: boolean
   quality_notes?: string
   finishing_worker?: string
+  manufacturers?: FinishingManufacturerRow[]
+  grand_total_finishing_cost?: number
+  finishing_notes?: string
 }
 
 export interface SubmittedData {
@@ -168,7 +190,7 @@ export interface OrderMaterial {
   materials?: Material
 }
 
-export type ExpenseCategory = 'salary' | 'rent' | 'utilities' | 'materials' | 'transport' | 'other'
+export type ExpenseCategory = 'salary' | 'rent' | 'utilities' | 'materials' | 'transport' | 'other' | 'manufacturing'
 export type RevenueType = 'sales' | 'delivery_fees' | 'other'
 
 export interface Expense {
@@ -271,4 +293,18 @@ export interface Sale {
   updated_at: string
   retailers?: Pick<Retailer, 'id' | 'name' | 'phone' | 'address'>
   orders?: { order_number: string }
+}
+
+export type ManufacturerSpeciality = 'cutting' | 'printing' | 'finishing' | 'all'
+
+export interface Manufacturer {
+  id: string
+  name: string
+  phone: string | null
+  address: string | null
+  speciality: ManufacturerSpeciality | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
 }

@@ -11,9 +11,13 @@ import { OrderMaterials } from '@/components/orders/OrderMaterials'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { ConfirmModal } from '@/components/ui/Modal'
-import { STAGE_COLORS, STATUS_COLORS, NEXT_STAGE, STAGE_ORDER } from '@/lib/stageConfig'
+import { STAGES, STAGE_COLORS, STATUS_COLORS, NEXT_STAGE, STAGE_ORDER } from '@/lib/stageConfig'
 import { formatDate } from '@/lib/utils'
 import type { Order, StageData, Stage } from '@/lib/types'
+
+function fmtEGP(n: number) {
+  return 'EGP ' + n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 export default function OrderDetailPage(props: { params: Promise<{ id: string }> }) {
   const { id } = use(props.params)
@@ -30,6 +34,10 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   const [showDelete, setShowDelete] = useState(false)
   const [advancing, setAdvancing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  // Cost summary state
+  const [materialsCost, setMaterialsCost] = useState(0)
+  const [linkedSaleAmount, setLinkedSaleAmount] = useState<number | null>(null)
 
   useEffect(() => {
     if (loading) return
@@ -53,6 +61,26 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
       setOrder(data as Order)
       setActiveTab(data.current_stage as Stage)
     }
+
+    // Materials cost for Cost Summary
+    const { data: omData } = await supabase
+      .from('order_materials')
+      .select('quantity_needed, materials(cost_per_unit)')
+      .eq('order_id', id)
+    if (omData) {
+      const cost = (omData as unknown as Array<{ quantity_needed: number; materials: { cost_per_unit: number } | null }>)
+        .reduce((sum, om) => sum + om.quantity_needed * (om.materials?.cost_per_unit ?? 0), 0)
+      setMaterialsCost(cost)
+    }
+
+    // Linked sale
+    const { data: saleData } = await supabase
+      .from('sales')
+      .select('total_amount')
+      .eq('order_id', id)
+      .maybeSingle()
+    setLinkedSaleAmount(saleData?.total_amount ?? null)
+
     await fetchStageData()
     setFetching(false)
   }
@@ -72,6 +100,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     if (!next) return
     setAdvancing(true)
 
+    // Mark current stage complete
     await supabase.from('stage_data').upsert({
       order_id: id,
       stage: order.current_stage,
@@ -83,8 +112,8 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
       updated_at: new Date().toISOString(),
     }, { onConflict: 'order_id,stage' })
 
-    // Auto-deduct materials when advancing to cutting_printing
-    if (next === 'cutting_printing') {
+    // Auto-deduct stock when advancing to Cutting stage
+    if (next === 'cutting') {
       const { data: orderMats } = await supabase
         .from('order_materials')
         .select('id, material_id, quantity_needed')
@@ -123,20 +152,62 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
 
     const updates: Partial<Order> = { current_stage: next }
     if (next === 'submitted') updates.status = 'completed'
-
     await supabase.from('orders').update(updates).eq('id', id)
 
-    // Auto-create a revenue entry (amount=0, edit in Finance) when order is submitted
+    // When submitted: auto-create revenue entry + manufacturing expense entries
     if (next === 'submitted') {
+      const today = new Date().toISOString().split('T')[0]
+
+      // Revenue placeholder (amount=0, edit in Finance)
       await supabase.from('revenue').insert({
-        date: new Date().toISOString().split('T')[0],
+        date: today,
         type: 'sales',
         amount: 0,
         description: `${order.order_number} — ${order.customer_name}`,
         order_id: id,
         created_by: profile?.id,
       })
+
+      // Fetch fresh material costs
+      const { data: omData } = await supabase
+        .from('order_materials')
+        .select('quantity_needed, materials(cost_per_unit)')
+        .eq('order_id', id)
+      const matCost = omData
+        ? (omData as unknown as Array<{ quantity_needed: number; materials: { cost_per_unit: number } | null }>)
+            .reduce((s, om) => s + om.quantity_needed * (om.materials?.cost_per_unit ?? 0), 0)
+        : 0
+
+      // Cutting cost
+      const cuttingData = stageDataMap['cutting']?.data as Record<string, unknown> | undefined
+      const cuttingCost = typeof cuttingData?.total_cutting_cost === 'number' ? cuttingData.total_cutting_cost : 0
+
+      // Printing cost
+      const printingData = stageDataMap['printing']?.data as Record<string, unknown> | undefined
+      const printingCost = typeof printingData?.total_printing_cost === 'number' ? printingData.total_printing_cost : 0
+
+      // Finishing cost
+      const finishingData = stageDataMap['finishing']?.data as Record<string, unknown> | undefined
+      const finishingCost = typeof finishingData?.grand_total_finishing_cost === 'number' ? finishingData.grand_total_finishing_cost : 0
+
+      const expenseEntries = [
+        { amount: matCost,      desc: `${order.order_number} — Materials` },
+        { amount: cuttingCost,  desc: `${order.order_number} — Cutting` },
+        { amount: printingCost, desc: `${order.order_number} — Printing` },
+        { amount: finishingCost,desc: `${order.order_number} — Finishing` },
+      ].filter(e => e.amount > 0)
+
+      for (const entry of expenseEntries) {
+        await supabase.from('expenses').insert({
+          date: today,
+          category: 'manufacturing',
+          amount: entry.amount,
+          description: entry.desc,
+          created_by: profile?.id,
+        })
+      }
     }
+
     setAdvancing(false)
     setShowAdvance(false)
     await fetchOrder()
@@ -161,9 +232,30 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   }
 
   const stageLabels: Record<Stage, string> = {
-    draft: tr.draft, preparation: tr.preparation,
-    cutting_printing: tr.cutting_printing, finishing: tr.finishing, submitted: tr.submitted,
+    draft: tr.draft,
+    preparation: tr.preparation,
+    cutting: tr.cutting,
+    printing: tr.printing,
+    finishing: tr.finishing,
+    submitted: tr.submitted,
   }
+
+  // ── Cost summary derived values ──────────────────────────────────────────
+  const cuttingCost = (() => {
+    const d = stageDataMap['cutting']?.data as Record<string, unknown> | undefined
+    return typeof d?.total_cutting_cost === 'number' ? d.total_cutting_cost : 0
+  })()
+  const printingCost = (() => {
+    const d = stageDataMap['printing']?.data as Record<string, unknown> | undefined
+    return typeof d?.total_printing_cost === 'number' ? d.total_printing_cost : 0
+  })()
+  const finishingCost = (() => {
+    const d = stageDataMap['finishing']?.data as Record<string, unknown> | undefined
+    return typeof d?.grand_total_finishing_cost === 'number' ? d.grand_total_finishing_cost : 0
+  })()
+  const totalCost = materialsCost + cuttingCost + printingCost + finishingCost
+  const profitEstimate = linkedSaleAmount !== null ? linkedSaleAmount - totalCost : null
+  const hasCostData = totalCost > 0 || linkedSaleAmount !== null
 
   if (loading || fetching) {
     return (
@@ -218,7 +310,6 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
               </div>
             </div>
 
-            {/* Actions */}
             {profile?.role === 'manager' && (
               <div className="flex gap-2">
                 {nextStage && order.status === 'active' && (
@@ -250,7 +341,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
 
         {/* Stage tabs */}
         <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-          {(['draft', 'preparation', 'cutting_printing', 'finishing', 'submitted'] as Stage[]).map(stage => {
+          {STAGES.map(stage => {
             const reachable = STAGE_ORDER[stage] <= STAGE_ORDER[order.current_stage]
             return (
               <button key={stage}
@@ -294,6 +385,63 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
             />
           )}
         </div>
+
+        {/* Cost Summary (manager only) */}
+        {profile?.role === 'manager' && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mt-6">
+            <h2 className="font-semibold text-[#0f1b35] mb-4">{tr.costSummary}</h2>
+
+            {!hasCostData ? (
+              <p className="text-sm text-gray-400 text-center py-4">{tr.noCostData}</p>
+            ) : (
+              <div className="space-y-2">
+                {/* Row component */}
+                {[
+                  { label: tr.materialsCost,  value: materialsCost,  show: materialsCost > 0 },
+                  { label: tr.cuttingCost,    value: cuttingCost,    show: cuttingCost > 0 },
+                  { label: tr.printingCost,   value: printingCost,   show: printingCost > 0 },
+                  { label: tr.finishingCost,  value: finishingCost,  show: finishingCost > 0 },
+                ].map(row => row.show && (
+                  <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-50">
+                    <span className="text-sm text-gray-600">{row.label}</span>
+                    <span className="text-sm font-medium text-[#0f1b35] tabular-nums">
+                      {fmtEGP(row.value)}
+                    </span>
+                  </div>
+                ))}
+
+                {/* Total */}
+                <div className="flex items-center justify-between pt-3">
+                  <span className="font-semibold text-[#0f1b35]">{tr.totalOrderCost}</span>
+                  <span className="font-bold text-lg text-[#0f1b35] tabular-nums">
+                    {fmtEGP(totalCost)}
+                  </span>
+                </div>
+
+                {/* Linked sale + profit */}
+                {linkedSaleAmount !== null && (
+                  <>
+                    <div className="flex items-center justify-between py-2 border-t border-gray-100 mt-1">
+                      <span className="text-sm text-gray-600">{tr.linkedSaleAmount}</span>
+                      <span className="text-sm font-medium text-green-700 tabular-nums">
+                        {fmtEGP(linkedSaleAmount)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <span className="font-semibold text-[#0f1b35]">{tr.profitEstimate}</span>
+                      <span className={`font-bold text-lg tabular-nums ${
+                        (profitEstimate ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {profitEstimate !== null && profitEstimate >= 0 ? '+' : ''}
+                        {profitEstimate !== null ? fmtEGP(profitEstimate) : '—'}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Advance modal */}

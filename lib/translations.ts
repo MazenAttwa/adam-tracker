@@ -25,6 +25,7 @@ export const t = {
     stock: 'Stock',
     users: 'Users',
     settings: 'Settings',
+    manufacturers: 'Manufacturers',
 
     // Roles
     manager: 'Manager',
@@ -34,14 +35,16 @@ export const t = {
     // Stages
     draft: 'Draft',
     preparation: 'Preparation',
-    cutting_printing: 'Cutting & Printing',
+    cutting: 'Cutting',
+    printing: 'Printing',
     finishing: 'Finishing',
     submitted: 'Submitted to Customer',
 
     // Stage short labels
     draft_short: 'Draft',
     preparation_short: 'Prep',
-    cutting_printing_short: 'C&P',
+    cutting_short: 'Cut',
+    printing_short: 'Print',
     finishing_short: 'Finish',
     submitted_short: 'Done',
 
@@ -72,6 +75,8 @@ export const t = {
     saving: 'Saving…',
     back: 'Back',
     confirm: 'Confirm',
+    addRow: 'Add Row',
+    removeRow: 'Remove',
 
     // Dashboard
     totalOrders: 'Total Orders',
@@ -95,18 +100,50 @@ export const t = {
     supplierName: 'Supplier Name',
     estimatedCost: 'Estimated Cost',
 
-    // Cutting & Printing stage fields
-    cuttingDate: 'Cutting Date',
-    cuttingWorker: 'Cutting Worker',
+    // Cutting stage fields
+    cuttingCostPerUnit: 'Cutting Cost / Unit (EGP)',
+    quantityToCut: 'Quantity to Cut',
+    totalCuttingCost: 'Total Cutting Cost (EGP)',
+    cuttingNotes: 'Cutting Notes',
+
+    // Printing stage fields
+    printingCostPerUnit: 'Printing Cost / Unit (EGP)',
+    quantityToPrint: 'Quantity to Print',
+    totalPrintingCost: 'Total Printing Cost (EGP)',
+    printingLocation: 'Printing Location',
+    printingNotes: 'Printing Notes',
+
+    // Printing type (kept for backward compat)
     printingType: 'Printing Type',
     printingDetails: 'Printing Details',
-    piecesCut: 'Pieces Cut',
     printingTypes: {
       none: 'None',
       screen: 'Screen Print',
       digital: 'Digital Print',
       embroidery: 'Embroidery',
     },
+
+    // Manufacturer fields
+    manufacturer: 'Manufacturer',
+    manufacturerName: 'Manufacturer Name',
+    searchManufacturer: 'Search or type new manufacturer…',
+    addNewManufacturer: 'Add new',
+    manufacturerPhone: 'Phone',
+    manufacturerAddress: 'Address',
+    manufacturerSpeciality: 'Speciality',
+    manufacturerNotes: 'Notes',
+    addManufacturer: 'Add Manufacturer',
+    editManufacturer: 'Edit Manufacturer',
+    noManufacturers: 'No manufacturers found.',
+    deleteConfirmManufacturer: 'Delete this manufacturer? This cannot be undone.',
+    searchManufacturers: 'Search manufacturers…',
+    totalManufacturers: 'Total Manufacturers',
+    specialityCutting: 'Cutting',
+    specialityPrinting: 'Printing',
+    specialityFinishing: 'Finishing',
+    specialityAll: 'All / General',
+    filterBySpeciality: 'Filter by speciality',
+    allSpecialities: 'All Specialities',
 
     // Finishing stage fields
     finishingType: 'Finishing Type',
@@ -119,6 +156,12 @@ export const t = {
       hand: 'Hand Finished',
       machine: 'Machine Finished',
     },
+    finishingManufacturers: 'Manufacturer Assignments',
+    assignedQty: 'Qty Assigned',
+    costPerUnit: 'Cost / Unit (EGP)',
+    subtotal: 'Subtotal',
+    grandTotalFinishing: 'Grand Total Finishing Cost (EGP)',
+    finishingNotes: 'Finishing Notes',
 
     // Submitted stage fields
     deliveryDate: 'Delivery Date',
@@ -164,6 +207,17 @@ export const t = {
     noPhotos: 'No photos uploaded yet.',
     clickToUploadPhotos: 'Click here or drag photos to upload',
 
+    // Cost Summary
+    costSummary: 'Cost Summary',
+    materialsCost: 'Materials Cost',
+    cuttingCost: 'Cutting Cost',
+    printingCost: 'Printing Cost',
+    finishingCost: 'Finishing Cost',
+    totalOrderCost: 'Total Order Cost',
+    profitEstimate: 'Profit Estimate',
+    linkedSaleAmount: 'Sale Amount',
+    noCostData: 'No cost data available yet.',
+
     // Vendors module
     vendors: 'Vendors',
     addVendor: 'Add Vendor',
@@ -182,7 +236,6 @@ export const t = {
     filterByCategory: 'Filter by category',
     allCategories: 'All Categories',
     fabric: 'Fabric',
-    printing: 'Printing',
     accessories: 'Accessories',
     other: 'Other',
 
@@ -217,7 +270,7 @@ export const t = {
     unit: 'Unit',
     currentQuantity: 'Current Qty',
     minimumQuantity: 'Min Level',
-    costPerUnit: 'Cost / Unit',
+    costPerUnitMat: 'Cost / Unit',
     lowStock: 'Low Stock',
     addMaterial: 'Add Material',
     editMaterial: 'Edit Material',
@@ -258,7 +311,7 @@ export const t = {
     pendingDeduction: 'Pending',
     addOrderMaterial: 'Link Material',
     noOrderMaterials: 'No materials linked to this order.',
-    materialsDeductedMsg: 'Materials are automatically deducted when the order reaches Cutting & Printing stage.',
+    materialsDeductedMsg: 'Materials are automatically deducted when the order reaches the Cutting stage.',
 
     // Finance module
     finance: 'Finance',
@@ -289,6 +342,7 @@ export const t = {
     rent: 'Rent',
     utilities: 'Utilities',
     transport: 'Transport',
+    manufacturing: 'Manufacturing',
     expensesByCategory: 'By Category',
 
     // Revenue
@@ -357,7 +411,6 @@ export const t = {
     printInvoice: 'Print Invoice',
     addItem: 'Add Item',
     removeItem: 'Remove',
-    subtotal: 'Subtotal',
     filterByDeliveryStatus: 'Filter by status',
     allStatuses: 'All Statuses',
     linkRetailerLabel: 'Retailer',
@@ -432,6 +485,7 @@ export const t = {
     stock: 'المخزون',
     users: 'المستخدمون',
     settings: 'الإعدادات',
+    manufacturers: 'المصنّعون',
 
     manager: 'مدير',
     worker: 'عامل',
@@ -439,13 +493,15 @@ export const t = {
 
     draft: 'مسودة',
     preparation: 'التحضير',
-    cutting_printing: 'القص والطباعة',
+    cutting: 'القص',
+    printing: 'الطباعة',
     finishing: 'التشطيب',
     submitted: 'تسليم للعميل',
 
     draft_short: 'مسودة',
     preparation_short: 'تحضير',
-    cutting_printing_short: 'قص',
+    cutting_short: 'قص',
+    printing_short: 'طباعة',
     finishing_short: 'تشطيب',
     submitted_short: 'تسليم',
 
@@ -473,6 +529,8 @@ export const t = {
     saving: 'جارٍ الحفظ…',
     back: 'رجوع',
     confirm: 'تأكيد',
+    addRow: 'إضافة صف',
+    removeRow: 'حذف',
 
     totalOrders: 'إجمالي الطلبات',
     activeOrders: 'الطلبات النشطة',
@@ -493,17 +551,49 @@ export const t = {
     supplierName: 'اسم المورّد',
     estimatedCost: 'التكلفة التقديرية',
 
-    cuttingDate: 'تاريخ القص',
-    cuttingWorker: 'عامل القص',
+    // Cutting
+    cuttingCostPerUnit: 'تكلفة القص / وحدة (ج.م)',
+    quantityToCut: 'الكمية للقص',
+    totalCuttingCost: 'إجمالي تكلفة القص (ج.م)',
+    cuttingNotes: 'ملاحظات القص',
+
+    // Printing
+    printingCostPerUnit: 'تكلفة الطباعة / وحدة (ج.م)',
+    quantityToPrint: 'الكمية للطباعة',
+    totalPrintingCost: 'إجمالي تكلفة الطباعة (ج.م)',
+    printingLocation: 'مكان الطباعة',
+    printingNotes: 'ملاحظات الطباعة',
+
     printingType: 'نوع الطباعة',
     printingDetails: 'تفاصيل الطباعة',
-    piecesCut: 'القطع المقصوصة',
     printingTypes: {
       none: 'بدون طباعة',
       screen: 'طباعة سيلك',
       digital: 'طباعة رقمية',
       embroidery: 'تطريز',
     },
+
+    // Manufacturer
+    manufacturer: 'المصنّع',
+    manufacturerName: 'اسم المصنّع',
+    searchManufacturer: 'ابحث أو اكتب مصنّعاً جديداً…',
+    addNewManufacturer: 'إضافة جديد',
+    manufacturerPhone: 'الهاتف',
+    manufacturerAddress: 'العنوان',
+    manufacturerSpeciality: 'التخصص',
+    manufacturerNotes: 'ملاحظات',
+    addManufacturer: 'إضافة مصنّع',
+    editManufacturer: 'تعديل المصنّع',
+    noManufacturers: 'لا يوجد مصنّعون.',
+    deleteConfirmManufacturer: 'حذف هذا المصنّع؟ لا يمكن التراجع.',
+    searchManufacturers: 'بحث في المصنّعين…',
+    totalManufacturers: 'إجمالي المصنّعين',
+    specialityCutting: 'قص',
+    specialityPrinting: 'طباعة',
+    specialityFinishing: 'تشطيب',
+    specialityAll: 'الكل / عام',
+    filterBySpeciality: 'تصفية حسب التخصص',
+    allSpecialities: 'جميع التخصصات',
 
     finishingType: 'نوع التشطيب',
     ironing: 'تمّ الكيّ',
@@ -515,6 +605,12 @@ export const t = {
       hand: 'تشطيب يدوي',
       machine: 'تشطيب آلي',
     },
+    finishingManufacturers: 'تكليف المصنّعين',
+    assignedQty: 'الكمية المعيّنة',
+    costPerUnit: 'التكلفة / وحدة (ج.م)',
+    subtotal: 'الإجمالي الفرعي',
+    grandTotalFinishing: 'إجمالي تكلفة التشطيب (ج.م)',
+    finishingNotes: 'ملاحظات التشطيب',
 
     deliveryDate: 'تاريخ التسليم',
     deliveryMethod: 'طريقة التسليم',
@@ -558,7 +654,17 @@ export const t = {
     noPhotos: 'لا توجد صور مرفوعة بعد.',
     clickToUploadPhotos: 'اضغط هنا أو اسحب الصور للرفع',
 
-    // Vendors module
+    // Cost Summary
+    costSummary: 'ملخص التكاليف',
+    materialsCost: 'تكلفة المواد',
+    cuttingCost: 'تكلفة القص',
+    printingCost: 'تكلفة الطباعة',
+    finishingCost: 'تكلفة التشطيب',
+    totalOrderCost: 'إجمالي تكلفة الطلب',
+    profitEstimate: 'تقدير الربح',
+    linkedSaleAmount: 'مبلغ البيع',
+    noCostData: 'لا توجد بيانات تكلفة بعد.',
+
     vendors: 'الموردون',
     addVendor: 'إضافة مورّد',
     editVendor: 'تعديل المورّد',
@@ -576,11 +682,9 @@ export const t = {
     filterByCategory: 'تصفية حسب الفئة',
     allCategories: 'جميع الفئات',
     fabric: 'قماش',
-    printing: 'طباعة',
     accessories: 'اكسسوارات',
     other: 'أخرى',
 
-    // Vendor transactions
     transactions: 'المعاملات',
     viewTransactions: 'المعاملات',
     addTransaction: 'إضافة معاملة',
@@ -590,7 +694,6 @@ export const t = {
     amount: 'المبلغ',
     noTransactions: 'لا توجد معاملات بعد.',
 
-    // Aging report
     agingReport: 'تقرير الديون',
     vendorsTab: 'الموردون',
     agingTab: 'الديون',
@@ -598,12 +701,10 @@ export const t = {
     noOutstanding: 'لا توجد أرصدة مستحقة.',
     oldestPurchase: 'منذ',
 
-    // Vendor link in stock
     linkVendor: 'المورّد (اختياري)',
     noVendor: 'بدون مورّد',
     purchaseAmount: 'مبلغ الشراء',
 
-    // Materials module
     materialPhotos: 'صور المادة',
     photo: 'الصورة',
     materialName: 'اسم المادة',
@@ -611,7 +712,7 @@ export const t = {
     unit: 'الوحدة',
     currentQuantity: 'الكمية الحالية',
     minimumQuantity: 'الحد الأدنى',
-    costPerUnit: 'التكلفة / الوحدة',
+    costPerUnitMat: 'التكلفة / الوحدة',
     lowStock: 'مخزون منخفض',
     addMaterial: 'إضافة مادة',
     editMaterial: 'تعديل المادة',
@@ -625,7 +726,6 @@ export const t = {
     piece: 'قطعة',
     materialNotes: 'ملاحظات',
 
-    // Stock module
     stockMovements: 'حركات المخزون',
     stockIn: 'إضافة للمخزون',
     stockOut: 'صرف من المخزون',
@@ -645,23 +745,20 @@ export const t = {
     stockSummary: 'ملخص المخزون',
     movementsHistory: 'سجل الحركات',
 
-    // Order materials
     orderMaterials: 'المواد المطلوبة',
     quantityNeeded: 'الكمية المطلوبة',
     deducted: 'تم الخصم',
     pendingDeduction: 'قيد الخصم',
     addOrderMaterial: 'ربط مادة',
     noOrderMaterials: 'لا توجد مواد مرتبطة بهذا الطلب.',
-    materialsDeductedMsg: 'سيتم خصم المواد تلقائياً عند وصول الطلب لمرحلة القص والطباعة.',
+    materialsDeductedMsg: 'سيتم خصم المواد تلقائياً عند وصول الطلب لمرحلة القص.',
 
-    // Finance module
     finance: 'المالية',
     financeDashboard: 'لوحة التحكم',
     expensesTab: 'المصروفات',
     revenueTab: 'الإيرادات',
     monthlyCloseTab: 'الإغلاق الشهري',
 
-    // Shared
     date: 'التاريخ',
     description: 'الوصف',
     month: 'الشهر',
@@ -669,7 +766,6 @@ export const t = {
     allMonths: 'جميع الأشهر',
     closedAt: 'تاريخ الإغلاق',
 
-    // Expenses
     expenses: 'المصروفات',
     addExpense: 'إضافة مصروف',
     editExpense: 'تعديل المصروف',
@@ -683,9 +779,9 @@ export const t = {
     rent: 'إيجار',
     utilities: 'مرافق',
     transport: 'مواصلات',
+    manufacturing: 'تصنيع',
     expensesByCategory: 'حسب الفئة',
 
-    // Revenue
     revenue: 'الإيرادات',
     addRevenue: 'إضافة إيراد',
     editRevenue: 'تعديل الإيراد',
@@ -698,14 +794,12 @@ export const t = {
     sales: 'مبيعات',
     autoRevenue: 'تم تسليم الطلب',
 
-    // Financial dashboard
     netProfit: 'صافي الربح',
     financialSummary: 'هذا الشهر',
     revenueVsExpenses: 'الإيرادات مقابل المصروفات',
     last6Months: 'آخر 6 أشهر',
     vendorObligations: 'مستحقات الموردين',
 
-    // Monthly close
     monthlyClose: 'الإغلاق الشهري',
     closeMonth: 'إغلاق الشهر',
     closedMonth: 'مغلق',
@@ -717,7 +811,6 @@ export const t = {
     monthStatement: 'كشف الحساب الشهري',
     printStatement: 'طباعة الكشف',
 
-    // Retailers module
     retailers: 'تجار التجزئة',
     addRetailer: 'إضافة تاجر',
     editRetailer: 'تعديل التاجر',
@@ -731,7 +824,6 @@ export const t = {
     searchRetailers: 'بحث في التجار…',
     totalRetailers: 'إجمالي التجار',
 
-    // Sales module
     addSale: 'بيع جديد',
     editSale: 'تعديل البيع',
     saleItems: 'المنتجات',
@@ -751,13 +843,11 @@ export const t = {
     printInvoice: 'طباعة الفاتورة',
     addItem: 'إضافة منتج',
     removeItem: 'حذف',
-    subtotal: 'الإجمالي الفرعي',
     filterByDeliveryStatus: 'تصفية حسب الحالة',
     allStatuses: 'جميع الحالات',
     linkRetailerLabel: 'التاجر',
     linkOrderOpt: 'ربط بطلب (اختياري)',
 
-    // Reports module
     reports: 'التقارير',
     pnlReport: 'الأرباح والخسائر',
     ordersReport: 'ملخص الطلبات',
@@ -772,19 +862,16 @@ export const t = {
     selectRetailer: 'اختر التاجر',
     printReport: 'طباعة التقرير',
 
-    // Dashboard enhancements
     monthlyPL: 'الربح والخسارة الشهري',
     topRetailers: 'أبرز التجار',
     lowStockAlert: 'تنبيه المخزون المنخفض',
     noLowStock: 'مستويات المخزون طبيعية.',
     viewAll: 'عرض الكل →',
 
-    // System improvements
     reorder: 'إعادة طلب',
     savedOk: 'تم الحفظ بنجاح',
     quickActions: 'إجراءات سريعة',
 
-    // Production Gantt
     productionPlan: 'خطة الإنتاج',
     scheduledOrders: 'الطلبات المجدولة',
     totalHours: 'إجمالي الساعات',
