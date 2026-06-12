@@ -226,6 +226,7 @@ export const t = {
     linkedSaleAmount: 'Sale Amount',
     noCostData: 'No cost data available yet.',
     materialsSubtotal: 'Materials Subtotal',
+    totalMaterialsCost: 'Total Materials Cost',
     lineCost: 'Cost',
 
     // Vendors module
@@ -683,6 +684,7 @@ export const t = {
     linkedSaleAmount: 'مبلغ البيع',
     noCostData: 'لا توجد بيانات تكلفة بعد.',
     materialsSubtotal: 'إجمالي تكلفة المواد',
+    totalMaterialsCost: 'إجمالي تكلفة المواد',
     lineCost: 'التكلفة',
 
     vendors: 'الموردون',

@@ -30,7 +30,6 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
   const [qty, setQty] = useState('')
   const [adding, setAdding] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
-  // Local quantity overrides for inline editing (not yet saved)
   const [localQtys, setLocalQtys] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -113,6 +112,14 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
   const linkedIds = orderMaterials.map(om => om.material_id)
   const availableMaterials = allMaterials.filter(m => !linkedIds.includes(m.id))
 
+  // Derive selected material object for live preview in add form
+  const selectedMat = allMaterials.find(m => m.id === selectedMaterial) ?? null
+  const previewCpu = selectedMat?.cost_per_unit ?? 0
+  const previewQty = parseFloat(qty) || 0
+  const previewSubtotal = previewCpu * previewQty
+
+  const currency = lang === 'ar' ? 'ج.م ' : 'EGP '
+
   if (loading) return null
 
   return (
@@ -136,35 +143,58 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
 
       {/* Add row */}
       {addMode && canEdit && (
-        <div className="flex flex-col sm:flex-row gap-3 items-end mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-          <Select
-            label={tr.selectMaterial}
-            value={selectedMaterial}
-            onChange={e => setSelectedMaterial(e.target.value)}
-            className="flex-1"
-          >
-            <option value="">—</option>
-            {availableMaterials.map(m => (
-              <option key={m.id} value={m.id}>
-                {m.name} ({m.code}) — {m.current_quantity.toLocaleString()} {unitLabel(m.unit)}
-              </option>
-            ))}
-          </Select>
-          <Input
-            label={tr.quantityNeeded}
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={qty}
-            onChange={e => setQty(e.target.value)}
-            className="sm:w-36"
-          />
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} loading={adding}>{tr.save}</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setAddMode(false); setSelectedMaterial(''); setQty('') }}>
-              {tr.cancel}
-            </Button>
+        <div className="flex flex-col gap-3 mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <div className="flex flex-col sm:flex-row gap-3 items-end">
+            <Select
+              label={tr.selectMaterial}
+              value={selectedMaterial}
+              onChange={e => setSelectedMaterial(e.target.value)}
+              className="flex-1"
+            >
+              <option value="">—</option>
+              {availableMaterials.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.name} ({m.code}) — {m.current_quantity.toLocaleString()} {unitLabel(m.unit)}
+                </option>
+              ))}
+            </Select>
+            <Input
+              label={tr.quantityNeeded}
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={qty}
+              onChange={e => setQty(e.target.value)}
+              className="sm:w-36"
+            />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleAdd} loading={adding}>{tr.save}</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setAddMode(false); setSelectedMaterial(''); setQty('') }}>
+                {tr.cancel}
+              </Button>
+            </div>
           </div>
+
+          {/* Live cost preview — shown once a material is selected */}
+          {selectedMat && (
+            <div className="flex flex-wrap gap-3 pt-1">
+              <div className="flex items-center gap-1.5 bg-white rounded-lg border border-gray-200 px-3 py-2">
+                <span className="text-xs text-gray-500">{tr.costPerUnitMat}:</span>
+                <span className="text-sm font-semibold tabular-nums text-[#0f1b35]">
+                  {currency}{fmtCost(previewCpu)}
+                </span>
+                <span className="text-xs text-gray-400">/ {unitLabel(selectedMat.unit)}</span>
+              </div>
+              {previewQty > 0 && (
+                <div className="flex items-center gap-1.5 bg-amber-50 rounded-lg border border-amber-200 px-3 py-2">
+                  <span className="text-xs text-amber-700">{previewQty.toLocaleString()} × {currency}{fmtCost(previewCpu)} =</span>
+                  <span className="text-sm font-bold tabular-nums text-[#c9a84c]">
+                    {currency}{fmtCost(previewSubtotal)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -177,8 +207,8 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.materialName}</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.unit}</th>
                 <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.quantityNeeded}</th>
+                <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.costPerUnitMat}</th>
                 <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.lineCost}</th>
                 <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.status}</th>
                 {canEdit && <th className="px-4 py-2.5" />}
@@ -193,14 +223,9 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
                     <td className="px-4 py-2.5">
                       <div className="font-medium text-[#0f1b35]">{om.materials?.name}</div>
                       <div className="text-xs font-mono text-gray-400">{om.materials?.code}</div>
-                      {costPerUnit > 0 && (
-                        <div className="text-xs text-gray-400">
-                          {lang === 'ar' ? 'ج.م ' : 'EGP '}{fmtCost(costPerUnit)} / {om.materials?.unit ? unitLabel(om.materials.unit) : '—'}
-                        </div>
+                      {om.materials?.unit && (
+                        <div className="text-xs text-gray-400">{unitLabel(om.materials.unit)}</div>
                       )}
-                    </td>
-                    <td className="px-4 py-2.5 text-gray-500">
-                      {om.materials?.unit ? unitLabel(om.materials.unit) : '—'}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       {!om.is_deducted && canEdit ? (
@@ -219,9 +244,15 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#0f1b35]">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
+                      {costPerUnit > 0
+                        ? <>{currency}{fmtCost(costPerUnit)}</>
+                        : <span className="text-gray-300">—</span>
+                      }
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-[#0f1b35]">
                       {lineTotal > 0
-                        ? <>{lang === 'ar' ? 'ج.م ' : 'EGP '}{fmtCost(lineTotal)}</>
+                        ? <>{currency}{fmtCost(lineTotal)}</>
                         : <span className="text-gray-300">—</span>
                       }
                     </td>
@@ -257,12 +288,14 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
         </div>
       )}
 
-      {/* Materials subtotal */}
-      {estimatedCost > 0 && (
-        <div className="mt-3 flex items-center justify-between px-4 py-2.5 bg-[#0f1b35]/5 rounded-xl border border-[#0f1b35]/10">
-          <span className="text-sm font-semibold text-[#0f1b35]">{tr.materialsSubtotal}</span>
-          <span className="text-sm font-bold tabular-nums text-[#c9a84c]">
-            {lang === 'ar' ? 'ج.م ' : 'EGP '}{fmtCost(estimatedCost)}
+      {/* Total Materials Cost — always shown when materials are linked */}
+      {orderMaterials.length > 0 && (
+        <div className="mt-3 flex items-center justify-between px-4 py-3 bg-[#0f1b35]/5 rounded-xl border border-[#0f1b35]/10">
+          <span className="text-sm font-semibold text-[#0f1b35] uppercase tracking-wide">
+            {tr.totalMaterialsCost}
+          </span>
+          <span className="text-base font-bold tabular-nums text-[#c9a84c]">
+            {currency}{fmtCost(estimatedCost)}
           </span>
         </div>
       )}
