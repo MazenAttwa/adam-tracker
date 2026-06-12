@@ -136,22 +136,63 @@ export function StageForm({ orderId, stage, stageData, canEdit, onSaved }: Stage
 
       {/* ── PREPARATION ───────────────────────────────────────────────────── */}
       {stage === 'preparation' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Textarea label={tr.materialsList} disabled={!canEdit} className="sm:col-span-2"
-            value={str('materials_list')}
-            onChange={e => set('materials_list', e.target.value)} />
-          <Input label={tr.fabricColor} disabled={!canEdit}
-            value={str('fabric_color')}
-            onChange={e => set('fabric_color', e.target.value)} />
-          <Input label={tr.fabricQuantity} type="number" disabled={!canEdit}
-            value={str('fabric_quantity')}
-            onChange={e => set('fabric_quantity', e.target.value ? Number(e.target.value) : '')} />
-          <Input label={tr.supplierName} disabled={!canEdit}
-            value={str('supplier_name')}
-            onChange={e => set('supplier_name', e.target.value)} />
-          <Input label={tr.estimatedCost} type="number" disabled={!canEdit}
-            value={str('estimated_cost')}
-            onChange={e => set('estimated_cost', e.target.value ? Number(e.target.value) : '')} />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Fabric type */}
+            <Textarea label={tr.fabricType} disabled={!canEdit} className="sm:col-span-2"
+              value={str('fabric_type')}
+              onChange={e => set('fabric_type', e.target.value)} />
+
+            {/* Fabric cost per unit */}
+            <Input label={tr.fabricCostPerUnit} type="number" min="0" step="0.01" disabled={!canEdit}
+              value={str('fabric_cost_per_unit')}
+              onChange={e => {
+                const cpu = e.target.value ? Number(e.target.value) : 0
+                const qty = num('fabric_quantity')
+                set('fabric_cost_per_unit', cpu)
+                set('fabric_total_cost', cpu * qty)
+              }} />
+
+            {/* Fabric quantity + unit */}
+            <Input label={tr.fabricQuantity} type="number" min="0" step="0.01" disabled={!canEdit}
+              value={str('fabric_quantity')}
+              onChange={e => {
+                const qty = e.target.value ? Number(e.target.value) : 0
+                const cpu = num('fabric_cost_per_unit')
+                set('fabric_quantity', qty)
+                set('fabric_total_cost', cpu * qty)
+              }} />
+
+            {/* Fabric unit */}
+            <Select label={tr.unit} disabled={!canEdit}
+              value={str('fabric_unit') || 'meter'}
+              onChange={e => set('fabric_unit', e.target.value)}>
+              <option value="meter">{tr.meter}</option>
+              <option value="kg">{tr.kg}</option>
+              <option value="piece">{tr.piece}</option>
+            </Select>
+
+            {/* Auto-calculated total fabric cost */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                {tr.fabricTotalCost}
+              </label>
+              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-sm font-bold text-[#0f1b35] tabular-nums">
+                {lang === 'ar' ? 'ج.م ' : 'EGP '}
+                {fmt(num('fabric_total_cost'))}
+              </div>
+            </div>
+
+            {/* Fabric supplier */}
+            <Input label={tr.fabricSupplier} disabled={!canEdit}
+              value={str('fabric_supplier')}
+              onChange={e => set('fabric_supplier', e.target.value)} />
+
+            {/* Fabric notes */}
+            <Textarea label={tr.fabricNotes} disabled={!canEdit} className="sm:col-span-2"
+              value={str('fabric_notes')}
+              onChange={e => set('fabric_notes', e.target.value)} />
+          </div>
         </div>
       )}
 

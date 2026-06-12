@@ -10,11 +10,16 @@ import type { Material, OrderMaterial } from '@/lib/types'
 interface OrderMaterialsProps {
   orderId: string
   canEdit: boolean
+  onCostChange?: (cost: number) => void
 }
 
-export function OrderMaterials({ orderId, canEdit }: OrderMaterialsProps) {
+function fmtCost(n: number) {
+  return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterialsProps) {
   const { profile } = useAuth()
-  const { tr } = useLang()
+  const { tr, lang } = useLang()
   const supabase = createClient()
 
   const [orderMaterials, setOrderMaterials] = useState<OrderMaterial[]>([])
@@ -25,6 +30,8 @@ export function OrderMaterials({ orderId, canEdit }: OrderMaterialsProps) {
   const [qty, setQty] = useState('')
   const [adding, setAdding] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  // Local quantity overrides for inline editing (not yet saved)
+  const [localQtys, setLocalQtys] = useState<Record<string, string>>({})
 
   useEffect(() => {
     fetchData()
@@ -67,13 +74,41 @@ export function OrderMaterials({ orderId, canEdit }: OrderMaterialsProps) {
     fetchData()
   }
 
+  function handleQtyInput(id: string, val: string) {
+    setLocalQtys(prev => ({ ...prev, [id]: val }))
+  }
+
+  async function handleQtyBlur(om: OrderMaterial, val: string) {
+    const parsed = parseFloat(val)
+    if (isNaN(parsed) || parsed <= 0) {
+      setLocalQtys(prev => { const n = { ...prev }; delete n[om.id]; return n })
+      return
+    }
+    if (parsed === om.quantity_needed) {
+      setLocalQtys(prev => { const n = { ...prev }; delete n[om.id]; return n })
+      return
+    }
+    await supabase.from('order_materials').update({ quantity_needed: parsed }).eq('id', om.id)
+    setOrderMaterials(prev => prev.map(m => m.id === om.id ? { ...m, quantity_needed: parsed } : m))
+    setLocalQtys(prev => { const n = { ...prev }; delete n[om.id]; return n })
+  }
+
+  function effectiveQty(om: OrderMaterial): number {
+    if (localQtys[om.id] !== undefined) return parseFloat(localQtys[om.id]) || 0
+    return om.quantity_needed
+  }
+
   const unitLabel = (u: string) =>
     u === 'meter' ? tr.meter : u === 'kg' ? tr.kg : tr.piece
 
   const estimatedCost = orderMaterials.reduce(
-    (s, om) => s + om.quantity_needed * (om.materials?.cost_per_unit ?? 0),
+    (s, om) => s + effectiveQty(om) * (om.materials?.cost_per_unit ?? 0),
     0
   )
+
+  useEffect(() => {
+    onCostChange?.(estimatedCost)
+  }, [estimatedCost]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const linkedIds = orderMaterials.map(om => om.material_id)
   const availableMaterials = allMaterials.filter(m => !linkedIds.includes(m.id))
@@ -81,7 +116,7 @@ export function OrderMaterials({ orderId, canEdit }: OrderMaterialsProps) {
   if (loading) return null
 
   return (
-    <div className="border-t border-gray-100 pt-6 mt-2">
+    <div>
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-[#0f1b35] text-sm">{tr.orderMaterials}</h3>
         {canEdit && !addMode && (
@@ -144,60 +179,90 @@ export function OrderMaterials({ orderId, canEdit }: OrderMaterialsProps) {
                 <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.materialName}</th>
                 <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.unit}</th>
                 <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.quantityNeeded}</th>
+                <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.lineCost}</th>
                 <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.status}</th>
                 {canEdit && <th className="px-4 py-2.5" />}
               </tr>
             </thead>
             <tbody>
-              {orderMaterials.map(om => (
-                <tr key={om.id} className="border-b border-gray-50 last:border-0">
-                  <td className="px-4 py-2.5">
-                    <div className="font-medium text-[#0f1b35]">{om.materials?.name}</div>
-                    <div className="text-xs font-mono text-gray-400">{om.materials?.code}</div>
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-500">
-                    {om.materials?.unit ? unitLabel(om.materials.unit) : '—'}
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-[#0f1b35]">
-                    {om.quantity_needed.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    {om.is_deducted ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full border border-green-200">
-                        ✓ {tr.deducted}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
-                        ⏳ {tr.pendingDeduction}
-                      </span>
-                    )}
-                  </td>
-                  {canEdit && (
-                    <td className="px-4 py-2.5 text-right">
-                      {!om.is_deducted && (
-                        <button
-                          onClick={() => handleRemove(om.id)}
-                          disabled={removingId === om.id}
-                          className="text-xs text-red-500 hover:underline disabled:opacity-50"
-                        >
-                          {tr.delete}
-                        </button>
+              {orderMaterials.map(om => {
+                const costPerUnit = om.materials?.cost_per_unit ?? 0
+                const lineTotal = effectiveQty(om) * costPerUnit
+                return (
+                  <tr key={om.id} className="border-b border-gray-50 last:border-0">
+                    <td className="px-4 py-2.5">
+                      <div className="font-medium text-[#0f1b35]">{om.materials?.name}</div>
+                      <div className="text-xs font-mono text-gray-400">{om.materials?.code}</div>
+                      {costPerUnit > 0 && (
+                        <div className="text-xs text-gray-400">
+                          {lang === 'ar' ? 'ج.م ' : 'EGP '}{fmtCost(costPerUnit)} / {om.materials?.unit ? unitLabel(om.materials.unit) : '—'}
+                        </div>
                       )}
                     </td>
-                  )}
-                </tr>
-              ))}
+                    <td className="px-4 py-2.5 text-gray-500">
+                      {om.materials?.unit ? unitLabel(om.materials.unit) : '—'}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {!om.is_deducted && canEdit ? (
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={localQtys[om.id] ?? om.quantity_needed.toString()}
+                          onChange={e => handleQtyInput(om.id, e.target.value)}
+                          onBlur={e => handleQtyBlur(om, e.target.value)}
+                          className="w-20 px-2 py-1 rounded border border-gray-200 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-[#0f1b35]"
+                        />
+                      ) : (
+                        <span className="font-semibold tabular-nums text-[#0f1b35]">
+                          {om.quantity_needed.toLocaleString()}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#0f1b35]">
+                      {lineTotal > 0
+                        ? <>{lang === 'ar' ? 'ج.م ' : 'EGP '}{fmtCost(lineTotal)}</>
+                        : <span className="text-gray-300">—</span>
+                      }
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {om.is_deducted ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full border border-green-200">
+                          ✓ {tr.deducted}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                          ⏳ {tr.pendingDeduction}
+                        </span>
+                      )}
+                    </td>
+                    {canEdit && (
+                      <td className="px-4 py-2.5 text-right">
+                        {!om.is_deducted && (
+                          <button
+                            onClick={() => handleRemove(om.id)}
+                            disabled={removingId === om.id}
+                            className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                          >
+                            {tr.delete}
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Estimated cost footer */}
-      {orderMaterials.length > 0 && estimatedCost > 0 && (
+      {/* Materials subtotal */}
+      {estimatedCost > 0 && (
         <div className="mt-3 flex items-center justify-between px-4 py-2.5 bg-[#0f1b35]/5 rounded-xl border border-[#0f1b35]/10">
-          <span className="text-sm font-medium text-[#0f1b35]">{tr.estimatedCost}</span>
-          <span className="text-sm font-bold tabular-nums text-[#0f1b35]">
-            {estimatedCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <span className="text-sm font-semibold text-[#0f1b35]">{tr.materialsSubtotal}</span>
+          <span className="text-sm font-bold tabular-nums text-[#c9a84c]">
+            {lang === 'ar' ? 'ج.م ' : 'EGP '}{fmtCost(estimatedCost)}
           </span>
         </div>
       )}

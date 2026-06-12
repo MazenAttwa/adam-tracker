@@ -178,23 +178,28 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
             .reduce((s, om) => s + om.quantity_needed * (om.materials?.cost_per_unit ?? 0), 0)
         : 0
 
+      // Fabric cost
+      const prepData = stageDataMap['preparation']?.data as Record<string, unknown> | undefined
+      const fabricCostForExpense = typeof prepData?.fabric_total_cost === 'number' ? prepData.fabric_total_cost : 0
+
       // Cutting cost
       const cuttingData = stageDataMap['cutting']?.data as Record<string, unknown> | undefined
-      const cuttingCost = typeof cuttingData?.total_cutting_cost === 'number' ? cuttingData.total_cutting_cost : 0
+      const cuttingCostForExpense = typeof cuttingData?.total_cutting_cost === 'number' ? cuttingData.total_cutting_cost : 0
 
       // Printing cost
       const printingData = stageDataMap['printing']?.data as Record<string, unknown> | undefined
-      const printingCost = typeof printingData?.total_printing_cost === 'number' ? printingData.total_printing_cost : 0
+      const printingCostForExpense = typeof printingData?.total_printing_cost === 'number' ? printingData.total_printing_cost : 0
 
       // Finishing cost
       const finishingData = stageDataMap['finishing']?.data as Record<string, unknown> | undefined
-      const finishingCost = typeof finishingData?.grand_total_finishing_cost === 'number' ? finishingData.grand_total_finishing_cost : 0
+      const finishingCostForExpense = typeof finishingData?.grand_total_finishing_cost === 'number' ? finishingData.grand_total_finishing_cost : 0
 
       const expenseEntries = [
-        { amount: matCost,      desc: `${order.order_number} — Materials` },
-        { amount: cuttingCost,  desc: `${order.order_number} — Cutting` },
-        { amount: printingCost, desc: `${order.order_number} — Printing` },
-        { amount: finishingCost,desc: `${order.order_number} — Finishing` },
+        { amount: matCost,                 desc: `${order.order_number} — Materials` },
+        { amount: fabricCostForExpense,    desc: `${order.order_number} — Fabric` },
+        { amount: cuttingCostForExpense,   desc: `${order.order_number} — Cutting` },
+        { amount: printingCostForExpense,  desc: `${order.order_number} — Printing` },
+        { amount: finishingCostForExpense, desc: `${order.order_number} — Finishing` },
       ].filter(e => e.amount > 0)
 
       for (const entry of expenseEntries) {
@@ -241,6 +246,10 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   }
 
   // ── Cost summary derived values ──────────────────────────────────────────
+  const fabricCost = (() => {
+    const d = stageDataMap['preparation']?.data as Record<string, unknown> | undefined
+    return typeof d?.fabric_total_cost === 'number' ? d.fabric_total_cost : 0
+  })()
   const cuttingCost = (() => {
     const d = stageDataMap['cutting']?.data as Record<string, unknown> | undefined
     return typeof d?.total_cutting_cost === 'number' ? d.total_cutting_cost : 0
@@ -253,7 +262,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     const d = stageDataMap['finishing']?.data as Record<string, unknown> | undefined
     return typeof d?.grand_total_finishing_cost === 'number' ? d.grand_total_finishing_cost : 0
   })()
-  const totalCost = materialsCost + cuttingCost + printingCost + finishingCost
+  const totalCost = materialsCost + fabricCost + cuttingCost + printingCost + finishingCost
   const profitEstimate = linkedSaleAmount !== null ? linkedSaleAmount - totalCost : null
   const hasCostData = totalCost > 0 || linkedSaleAmount !== null
 
@@ -371,6 +380,16 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
             )}
           </div>
 
+          {activeTab === 'preparation' && (
+            <>
+              <OrderMaterials
+                orderId={id}
+                canEdit={canEditStage('preparation')}
+                onCostChange={setMaterialsCost}
+              />
+              <hr className="border-gray-100 my-6" />
+            </>
+          )}
           <StageForm
             orderId={id}
             stage={activeTab}
@@ -378,12 +397,6 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
             canEdit={canEditStage(activeTab)}
             onSaved={fetchStageData}
           />
-          {activeTab === 'draft' && (
-            <OrderMaterials
-              orderId={id}
-              canEdit={canEditStage('draft')}
-            />
-          )}
         </div>
 
         {/* Cost Summary (manager only) */}
@@ -398,6 +411,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
                 {/* Row component */}
                 {[
                   { label: tr.materialsCost,  value: materialsCost,  show: materialsCost > 0 },
+                  { label: tr.fabricCost,     value: fabricCost,     show: fabricCost > 0 },
                   { label: tr.cuttingCost,    value: cuttingCost,    show: cuttingCost > 0 },
                   { label: tr.printingCost,   value: printingCost,   show: printingCost > 0 },
                   { label: tr.finishingCost,  value: finishingCost,  show: finishingCost > 0 },

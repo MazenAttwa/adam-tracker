@@ -96,9 +96,16 @@ export const t = {
     // Preparation stage fields
     materialsList: 'Materials List',
     fabricColor: 'Fabric Color',
-    fabricQuantity: 'Fabric Quantity (m)',
+    fabricQuantity: 'Fabric Quantity',
     supplierName: 'Supplier Name',
     estimatedCost: 'Estimated Cost',
+
+    // Preparation — fabric cost section
+    fabricType: 'Fabric Type / Description',
+    fabricCostPerUnit: 'Fabric Cost / Unit (EGP)',
+    fabricTotalCost: 'Total Fabric Cost (EGP)',
+    fabricSupplier: 'Fabric Supplier',
+    fabricNotes: 'Fabric Notes',
 
     // Cutting stage fields
     cuttingCostPerUnit: 'Cutting Cost / Unit (EGP)',
@@ -210,13 +217,16 @@ export const t = {
     // Cost Summary
     costSummary: 'Cost Summary',
     materialsCost: 'Materials Cost',
+    fabricCost: 'Fabric Cost',
     cuttingCost: 'Cutting Cost',
     printingCost: 'Printing Cost',
     finishingCost: 'Finishing Cost',
     totalOrderCost: 'Total Order Cost',
-    profitEstimate: 'Profit Estimate',
+    profitEstimate: 'Net Profit',
     linkedSaleAmount: 'Sale Amount',
     noCostData: 'No cost data available yet.',
+    materialsSubtotal: 'Materials Subtotal',
+    lineCost: 'Cost',
 
     // Vendors module
     vendors: 'Vendors',
@@ -547,9 +557,16 @@ export const t = {
 
     materialsList: 'قائمة المواد',
     fabricColor: 'لون القماش',
-    fabricQuantity: 'كمية القماش (م)',
+    fabricQuantity: 'كمية القماش',
     supplierName: 'اسم المورّد',
     estimatedCost: 'التكلفة التقديرية',
+
+    // Preparation — fabric cost section
+    fabricType: 'نوع القماش / الوصف',
+    fabricCostPerUnit: 'تكلفة القماش / وحدة (ج.م)',
+    fabricTotalCost: 'إجمالي تكلفة القماش (ج.م)',
+    fabricSupplier: 'مورّد القماش',
+    fabricNotes: 'ملاحظات القماش',
 
     // Cutting
     cuttingCostPerUnit: 'تكلفة القص / وحدة (ج.م)',
@@ -657,13 +674,16 @@ export const t = {
     // Cost Summary
     costSummary: 'ملخص التكاليف',
     materialsCost: 'تكلفة المواد',
+    fabricCost: 'تكلفة القماش',
     cuttingCost: 'تكلفة القص',
     printingCost: 'تكلفة الطباعة',
     finishingCost: 'تكلفة التشطيب',
     totalOrderCost: 'إجمالي تكلفة الطلب',
-    profitEstimate: 'تقدير الربح',
+    profitEstimate: 'صافي الربح',
     linkedSaleAmount: 'مبلغ البيع',
     noCostData: 'لا توجد بيانات تكلفة بعد.',
+    materialsSubtotal: 'إجمالي تكلفة المواد',
+    lineCost: 'التكلفة',
 
     vendors: 'الموردون',
     addVendor: 'إضافة مورّد',

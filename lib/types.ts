@@ -49,9 +49,17 @@ export interface DraftData {
 }
 
 export interface PreparationData {
+  // New structured fabric cost fields
+  fabric_type?: string
+  fabric_unit?: string
+  fabric_cost_per_unit?: number
+  fabric_quantity?: number
+  fabric_total_cost?: number
+  fabric_supplier?: string
+  fabric_notes?: string
+  // Legacy fields (kept for backward compat)
   materials_list?: string
   fabric_color?: string
-  fabric_quantity?: number
   supplier_name?: string
   estimated_cost?: number
 }
