@@ -321,6 +321,7 @@ export const t = {
     deducted: 'Deducted',
     pendingDeduction: 'Pending',
     addOrderMaterial: 'Link Material',
+    addAnotherMaterial: '+ Add Another Material',
     noOrderMaterials: 'No materials linked to this order.',
     materialsDeductedMsg: 'Materials are automatically deducted when the order reaches the Cutting stage.',
 
@@ -772,6 +773,7 @@ export const t = {
     deducted: 'تم الخصم',
     pendingDeduction: 'قيد الخصم',
     addOrderMaterial: 'ربط مادة',
+    addAnotherMaterial: '+ إضافة مادة أخرى',
     noOrderMaterials: 'لا توجد مواد مرتبطة بهذا الطلب.',
     materialsDeductedMsg: 'سيتم خصم المواد تلقائياً عند وصول الطلب لمرحلة القص.',
 

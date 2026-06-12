@@ -23,10 +23,15 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
   const [orderMaterials, setOrderMaterials] = useState<OrderMaterial[]>([])
   const [allMaterials, setAllMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Add-form state
   const [addMode, setAddMode] = useState(false)
   const [selectedMaterial, setSelectedMaterial] = useState('')
   const [qty, setQty] = useState('')
   const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState('')
+
+  // Inline quantity-edit state (saved on blur)
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [localQtys, setLocalQtys] = useState<Record<string, string>>({})
 
@@ -36,7 +41,11 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
 
   async function fetchData() {
     const [{ data: oms }, { data: mats }] = await Promise.all([
-      supabase.from('order_materials').select('*, materials(*)').eq('order_id', orderId).order('created_at'),
+      supabase
+        .from('order_materials')
+        .select('*, materials(*)')
+        .eq('order_id', orderId)
+        .order('created_at'),
       supabase.from('materials').select('*').order('name'),
     ])
     setOrderMaterials(oms ?? [])
@@ -44,22 +53,56 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
     setLoading(false)
   }
 
+  // ── BUG 1 FIX: plain insert (no upsert/onConflict) + surface errors ────────
   async function handleAdd() {
-    if (!selectedMaterial || !qty || parseFloat(qty) <= 0) return
+    setAddError('')
+
+    if (!selectedMaterial) {
+      setAddError(tr.selectMaterial)
+      return
+    }
+    const qtyNum = parseFloat(qty)
+    if (!qty || isNaN(qtyNum) || qtyNum <= 0) {
+      setAddError(tr.quantityNeeded)
+      return
+    }
+
     setAdding(true)
-    const { error } = await supabase.from('order_materials').upsert({
+
+    const { error } = await supabase.from('order_materials').insert({
       order_id: orderId,
       material_id: selectedMaterial,
-      quantity_needed: parseFloat(qty),
+      quantity_needed: qtyNum,
       is_deducted: false,
-    }, { onConflict: 'order_id,material_id' })
-    if (!error) {
-      setAddMode(false)
-      setSelectedMaterial('')
-      setQty('')
-      fetchData()
-    }
+    })
+
     setAdding(false)
+
+    if (error) {
+      // Show the real error so it is visible and diagnosable
+      setAddError(error.message)
+      return
+    }
+
+    // ── BUG 2 FIX: close form, clear fields, refresh list ─────────────────
+    setAddMode(false)
+    setSelectedMaterial('')
+    setQty('')
+    await fetchData()
+  }
+
+  function openAddForm() {
+    setAddMode(true)
+    setSelectedMaterial('')
+    setQty('')
+    setAddError('')
+  }
+
+  function closeAddForm() {
+    setAddMode(false)
+    setSelectedMaterial('')
+    setQty('')
+    setAddError('')
   }
 
   async function handleRemove(id: string) {
@@ -84,7 +127,9 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
       return
     }
     await supabase.from('order_materials').update({ quantity_needed: parsed }).eq('id', om.id)
-    setOrderMaterials(prev => prev.map(m => m.id === om.id ? { ...m, quantity_needed: parsed } : m))
+    setOrderMaterials(prev =>
+      prev.map(m => m.id === om.id ? { ...m, quantity_needed: parsed } : m)
+    )
     setLocalQtys(prev => { const n = { ...prev }; delete n[om.id]; return n })
   }
 
@@ -96,6 +141,7 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
   const unitLabel = (u: string) =>
     u === 'meter' ? tr.meter : u === 'kg' ? tr.kg : tr.piece
 
+  // Total cost, recalculated on every render (always fresh)
   const estimatedCost = orderMaterials.reduce(
     (s, om) => s + effectiveQty(om) * (om.materials?.cost_per_unit ?? 0),
     0
@@ -105,10 +151,11 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
     onCostChange?.(estimatedCost)
   }, [estimatedCost]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Materials already linked — excluded from the dropdown
   const linkedIds = orderMaterials.map(om => om.material_id)
   const availableMaterials = allMaterials.filter(m => !linkedIds.includes(m.id))
 
-  // Live preview values — recomputed on every render so they're always fresh
+  // Live preview — computed at render time, always in sync with state
   const selectedMat = allMaterials.find(m => m.id === selectedMaterial) ?? null
   const previewCpu = selectedMat?.cost_per_unit ?? 0
   const previewQty = parseFloat(qty) || 0
@@ -120,11 +167,11 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
 
   return (
     <div>
-      {/* Header */}
+      {/* ── Header row ── */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-[#0f1b35] text-sm">{tr.orderMaterials}</h3>
-        {canEdit && !addMode && (
-          <Button size="sm" variant="secondary" onClick={() => setAddMode(true)}>
+        {canEdit && !addMode && orderMaterials.length === 0 && (
+          <Button size="sm" variant="secondary" onClick={openAddForm}>
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -133,20 +180,31 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
         )}
       </div>
 
-      {/* Info banner */}
+      {/* Deduction info banner */}
       <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
         {tr.materialsDeductedMsg}
       </p>
 
-      {/* ── Add form ── */}
+      {/* ═══════════════════════════════════════════════════════════════
+          ADD FORM — visible when addMode is true
+      ═══════════════════════════════════════════════════════════════ */}
       {addMode && canEdit && (
-        <div className="flex flex-col gap-3 mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-          {/* Row: dropdown + qty + buttons */}
+        <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+
+          {/* Validation / DB error */}
+          {addError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {addError}
+            </p>
+          )}
+
+          {/* Inputs row */}
           <div className="flex flex-col sm:flex-row gap-3 items-end">
+            {/* Material dropdown */}
             <Select
               label={tr.selectMaterial}
               value={selectedMaterial}
-              onChange={e => setSelectedMaterial(e.target.value)}
+              onChange={e => { setSelectedMaterial(e.target.value); setAddError('') }}
               className="flex-1"
             >
               <option value="">—</option>
@@ -157,6 +215,7 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
               ))}
             </Select>
 
+            {/* Quantity + unit label */}
             <div className="flex items-end gap-2">
               <Input
                 label={tr.quantityNeeded}
@@ -164,10 +223,9 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
                 min="0.01"
                 step="0.01"
                 value={qty}
-                onChange={e => setQty(e.target.value)}
+                onChange={e => { setQty(e.target.value); setAddError('') }}
                 className="w-32"
               />
-              {/* Unit label next to qty input */}
               {selectedMat && (
                 <span className="pb-2 text-sm text-gray-500 whitespace-nowrap">
                   {unitLabel(selectedMat.unit)}
@@ -175,18 +233,20 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
               )}
             </div>
 
+            {/* Action buttons */}
             <div className="flex gap-2 pb-0.5">
-              <Button size="sm" onClick={handleAdd} loading={adding}>{tr.save}</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setAddMode(false); setSelectedMaterial(''); setQty('') }}>
+              <Button size="sm" onClick={handleAdd} loading={adding}>
+                {tr.save}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={closeAddForm}>
                 {tr.cancel}
               </Button>
             </div>
           </div>
 
-          {/* ── Live cost preview — appears as soon as a material is chosen ── */}
+          {/* ── Live cost preview ── shows as soon as a material is chosen */}
           {selectedMat && (
             <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 space-y-1.5">
-              {/* Cost per unit line */}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">{tr.costPerUnitMat}</span>
                 <span className="font-semibold tabular-nums text-[#0f1b35]">
@@ -194,11 +254,11 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
                 </span>
               </div>
 
-              {/* Subtotal line — only once qty > 0 */}
               {previewQty > 0 && (
                 <div className="flex items-center justify-between border-t border-amber-200 pt-1.5 text-sm">
                   <span className="text-amber-800">
-                    {previewQty.toLocaleString()} {unitLabel(selectedMat.unit)} × {currency}{fmtCost(previewCpu)}
+                    {previewQty.toLocaleString()} {unitLabel(selectedMat.unit)}
+                    {' × '}{currency}{fmtCost(previewCpu)}
                   </span>
                   <span className="font-bold tabular-nums text-[#c9a84c] text-base">
                     = {currency}{fmtCost(previewSubtotal)}
@@ -210,120 +270,137 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
         </div>
       )}
 
-      {/* ── Materials list ── */}
+      {/* ═══════════════════════════════════════════════════════════════
+          MATERIALS LIST
+      ═══════════════════════════════════════════════════════════════ */}
       {orderMaterials.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-4">{tr.noOrderMaterials}</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-100">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.materialName}</th>
-                <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.quantityNeeded}</th>
-                <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.costPerUnitMat}</th>
-                <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.lineCost}</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.status}</th>
-                {canEdit && <th className="px-4 py-2.5" />}
-              </tr>
-            </thead>
-            <tbody>
-              {orderMaterials.map(om => {
-                const cpu = om.materials?.cost_per_unit ?? 0
-                const unit = om.materials?.unit ?? ''
-                const effQty = effectiveQty(om)
-                const lineTotal = effQty * cpu
+        <>
+          <div className="overflow-x-auto rounded-xl border border-gray-100">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.materialName}</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.quantityNeeded}</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.costPerUnitMat}</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.lineCost}</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.status}</th>
+                  {canEdit && <th className="px-4 py-2.5" />}
+                </tr>
+              </thead>
+              <tbody>
+                {orderMaterials.map(om => {
+                  const cpu = om.materials?.cost_per_unit ?? 0
+                  const unit = om.materials?.unit ?? ''
+                  const lineTotal = effectiveQty(om) * cpu
 
-                return (
-                  <tr key={om.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
-                    {/* Name + code */}
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-[#0f1b35]">{om.materials?.name}</div>
-                      <div className="text-xs font-mono text-gray-400">{om.materials?.code}</div>
-                    </td>
+                  return (
+                    <tr key={om.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
 
-                    {/* Quantity — editable until deducted */}
-                    <td className="px-4 py-3 text-right">
-                      {!om.is_deducted && canEdit ? (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <input
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            value={localQtys[om.id] ?? om.quantity_needed.toString()}
-                            onChange={e => handleQtyInput(om.id, e.target.value)}
-                            onBlur={e => handleQtyBlur(om, e.target.value)}
-                            className="w-20 px-2 py-1 rounded border border-gray-200 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-[#0f1b35]"
-                          />
-                          <span className="text-xs text-gray-400 whitespace-nowrap">{unit ? unitLabel(unit) : ''}</span>
-                        </div>
-                      ) : (
-                        <span className="font-semibold tabular-nums text-[#0f1b35]">
-                          {om.quantity_needed.toLocaleString()} {unit ? unitLabel(unit) : ''}
-                        </span>
-                      )}
-                    </td>
+                      {/* Material name + code */}
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-[#0f1b35]">{om.materials?.name}</div>
+                        <div className="text-xs font-mono text-gray-400">{om.materials?.code}</div>
+                      </td>
 
-                    {/* Cost per unit */}
-                    <td className="px-4 py-3 text-right tabular-nums text-gray-600 whitespace-nowrap">
-                      {cpu > 0
-                        ? <>{currency}{fmtCost(cpu)}{unit ? ` / ${unitLabel(unit)}` : ''}</>
-                        : <span className="text-gray-300">—</span>
-                      }
-                    </td>
-
-                    {/* Subtotal */}
-                    <td className="px-4 py-3 text-right tabular-nums font-bold text-[#c9a84c] whitespace-nowrap">
-                      {lineTotal > 0
-                        ? <>{currency}{fmtCost(lineTotal)}</>
-                        : <span className="text-gray-300 font-normal">—</span>
-                      }
-                    </td>
-
-                    {/* Deduction status */}
-                    <td className="px-4 py-3">
-                      {om.is_deducted ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full border border-green-200">
-                          ✓ {tr.deducted}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
-                          ⏳ {tr.pendingDeduction}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Delete */}
-                    {canEdit && (
+                      {/* Quantity — editable until deducted */}
                       <td className="px-4 py-3 text-right">
-                        {!om.is_deducted && (
-                          <button
-                            onClick={() => handleRemove(om.id)}
-                            disabled={removingId === om.id}
-                            className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-40 transition-colors"
-                          >
-                            {tr.delete}
-                          </button>
+                        {!om.is_deducted && canEdit ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={localQtys[om.id] ?? om.quantity_needed.toString()}
+                              onChange={e => handleQtyInput(om.id, e.target.value)}
+                              onBlur={e => handleQtyBlur(om, e.target.value)}
+                              className="w-20 px-2 py-1 rounded border border-gray-200 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-[#0f1b35]"
+                            />
+                            <span className="text-xs text-gray-400 whitespace-nowrap">
+                              {unit ? unitLabel(unit) : ''}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="font-semibold tabular-nums text-[#0f1b35]">
+                            {om.quantity_needed.toLocaleString()}{unit ? ` ${unitLabel(unit)}` : ''}
+                          </span>
                         )}
                       </td>
-                    )}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
 
-      {/* ── TOTAL MATERIALS COST ── always visible when materials are linked */}
-      {orderMaterials.length > 0 && (
-        <div className="mt-3 flex items-center justify-between px-4 py-3 rounded-xl bg-[#0f1b35]/5 border border-[#0f1b35]/10">
-          <span className="text-sm font-semibold text-[#0f1b35] uppercase tracking-wide">
-            {tr.totalMaterialsCost}
-          </span>
-          <span className="text-lg font-bold tabular-nums text-[#c9a84c]">
-            {currency}{fmtCost(estimatedCost)}
-          </span>
-        </div>
+                      {/* Cost per unit */}
+                      <td className="px-4 py-3 text-right tabular-nums text-gray-600 whitespace-nowrap">
+                        {cpu > 0
+                          ? <>{currency}{fmtCost(cpu)}{unit ? ` / ${unitLabel(unit)}` : ''}</>
+                          : <span className="text-gray-300">—</span>
+                        }
+                      </td>
+
+                      {/* Subtotal — bold gold */}
+                      <td className="px-4 py-3 text-right tabular-nums font-bold text-[#c9a84c] whitespace-nowrap">
+                        {lineTotal > 0
+                          ? <>{currency}{fmtCost(lineTotal)}</>
+                          : <span className="text-gray-300 font-normal">—</span>
+                        }
+                      </td>
+
+                      {/* Deduction status */}
+                      <td className="px-4 py-3">
+                        {om.is_deducted ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full border border-green-200">
+                            ✓ {tr.deducted}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                            ⏳ {tr.pendingDeduction}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Delete */}
+                      {canEdit && (
+                        <td className="px-4 py-3 text-right">
+                          {!om.is_deducted && (
+                            <button
+                              onClick={() => handleRemove(om.id)}
+                              disabled={removingId === om.id}
+                              className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-40 transition-colors"
+                            >
+                              {tr.delete}
+                            </button>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* TOTAL MATERIALS COST */}
+          <div className="mt-3 flex items-center justify-between px-4 py-3 rounded-xl bg-[#0f1b35]/5 border border-[#0f1b35]/10">
+            <span className="text-sm font-semibold text-[#0f1b35] uppercase tracking-wide">
+              {tr.totalMaterialsCost}
+            </span>
+            <span className="text-lg font-bold tabular-nums text-[#c9a84c]">
+              {currency}{fmtCost(estimatedCost)}
+            </span>
+          </div>
+
+          {/* ── "+ Add Another Material" button — prominent, below the total ── */}
+          {canEdit && !addMode && (
+            <button
+              onClick={openAddForm}
+              className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-sm font-medium text-gray-500 hover:border-[#c9a84c] hover:text-[#c9a84c] hover:bg-amber-50/30 transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              {tr.addAnotherMaterial}
+            </button>
+          )}
+        </>
       )}
     </div>
   )
