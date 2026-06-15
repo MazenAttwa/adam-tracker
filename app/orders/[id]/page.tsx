@@ -151,7 +151,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     }
 
     const updates: Partial<Order> = { current_stage: next }
-    if (next === 'submitted') updates.status = 'completed'
+    if (next === 'received') updates.status = 'completed'
     await supabase.from('orders').update(updates).eq('id', id)
 
     // When submitted: auto-create revenue entry + manufacturing expense entries
@@ -327,7 +327,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
 
             {profile?.role === 'manager' && (
               <div className="flex gap-2">
-                {nextStage && order.status === 'active' && (
+                {nextStage && order.status !== 'cancelled' && (
                   <Button size="sm" onClick={() => setShowAdvance(true)}>
                     {tr.advance}
                   </Button>
