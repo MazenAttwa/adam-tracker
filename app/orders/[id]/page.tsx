@@ -220,9 +220,24 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
 
   async function handleDelete() {
     setDeleting(true)
-    await supabase.from('orders').delete().eq('id', id)
+
+    // Remove all linked records first so foreign keys do not block the delete (full cleanup)
+    await supabase.from('stock_movements').delete().eq('order_id', id)
+    await supabase.from('order_materials').delete().eq('order_id', id)
+    await supabase.from('finishing_manufacturers').delete().eq('order_id', id)
+    await supabase.from('order_photos').delete().eq('order_id', id)
+    await supabase.from('production_assignments').delete().eq('order_id', id)
+    await supabase.from('revenue').delete().eq('order_id', id)
+    await supabase.from('sales').delete().eq('order_id', id)
+    await supabase.from('stage_data').delete().eq('order_id', id)
+
+    const { error } = await supabase.from('orders').delete().eq('id', id)
     setDeleting(false)
     setShowDelete(false)
+    if (error) {
+      alert(lang === 'ar' ? 'تعذر حذف الطلب: ' + error.message : 'Could not delete order: ' + error.message)
+      return
+    }
     router.push('/orders')
   }
 
