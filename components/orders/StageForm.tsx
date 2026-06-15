@@ -7,6 +7,7 @@ import { Input, Textarea, Select, Checkbox } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { PhotoUpload } from '@/components/orders/PhotoUpload'
 import { ManufacturerSelect } from '@/components/orders/ManufacturerSelect'
+import { FinishingTypeSelect } from '@/components/orders/FinishingTypeSelect'
 import { formatDateTime } from '@/lib/utils'
 import type { Stage, StageData, FinishingManufacturerRow } from '@/lib/types'
 
@@ -300,12 +301,9 @@ export function StageForm({ orderId, stage, stageData, canEdit, onSaved }: Stage
       {stage === 'finishing' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Select label={tr.finishingType} disabled={!canEdit}
-              value={str('finishing_type') || 'machine'}
-              onChange={e => set('finishing_type', e.target.value)}>
-              <option value="machine">{tr.finishingTypes.machine}</option>
-              <option value="hand">{tr.finishingTypes.hand}</option>
-            </Select>
+            <FinishingTypeSelect label={tr.finishingType} disabled={!canEdit}
+              value={str('finishing_type')}
+              onChange={name => set('finishing_type', name)} />
             <Input label={tr.finishingWorker} disabled={!canEdit}
               value={str('finishing_worker')}
               onChange={e => set('finishing_worker', e.target.value)} />

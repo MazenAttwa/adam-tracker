@@ -159,6 +159,8 @@ export const t = {
     qualityCheck: 'Quality Check Passed',
     qualityNotes: 'Quality Notes',
     finishingWorker: 'Finishing Worker',
+    searchFinishingType: 'Search or type new finishing type…',
+    addNewFinishingType: 'Add new type',
     finishingTypes: {
       hand: 'Hand Finished',
       machine: 'Machine Finished',
@@ -620,6 +622,8 @@ export const t = {
     qualityCheck: 'اجتاز فحص الجودة',
     qualityNotes: 'ملاحظات الجودة',
     finishingWorker: 'عامل التشطيب',
+    searchFinishingType: 'ابحث أو اكتب نوع تشطيب جديد…',
+    addNewFinishingType: 'إضافة نوع جديد',
     finishingTypes: {
       hand: 'تشطيب يدوي',
       machine: 'تشطيب آلي',
