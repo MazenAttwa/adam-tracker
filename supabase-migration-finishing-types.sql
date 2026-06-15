@@ -1,11 +1,16 @@
 -- ============================================================
 -- Migration: finishing_types table
 -- Lets users pick an existing finishing type OR add a new one.
--- Run in Supabase SQL Editor.
+-- Safe to re-run (idempotent). Run in Supabase SQL Editor.
 -- ============================================================
 
--- -- TABLE ---------------------------------------------------
+-- Drop any existing policies so we can recreate cleanly
+DROP POLICY IF EXISTS "finishing_types: authenticated read" ON public.finishing_types;
+DROP POLICY IF EXISTS "finishing_types: authenticated insert" ON public.finishing_types;
+DROP POLICY IF EXISTS "finishing_types: manager update" ON public.finishing_types;
+DROP POLICY IF EXISTS "finishing_types: manager delete" ON public.finishing_types;
 
+-- Make sure the table exists (skips if already there)
 CREATE TABLE IF NOT EXISTS public.finishing_types (
   id          uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   name        text NOT NULL UNIQUE,
@@ -14,10 +19,7 @@ CREATE TABLE IF NOT EXISTS public.finishing_types (
 
 ALTER TABLE public.finishing_types ENABLE ROW LEVEL SECURITY;
 
--- -- ROW LEVEL SECURITY --------------------------------------
--- Everyone signed in can read the list and add a new type.
--- Only managers can edit/delete existing ones.
-
+-- Recreate the policies
 CREATE POLICY "finishing_types: authenticated read" ON public.finishing_types
   FOR SELECT TO authenticated USING (true);
 
@@ -30,8 +32,7 @@ CREATE POLICY "finishing_types: manager update" ON public.finishing_types
 CREATE POLICY "finishing_types: manager delete" ON public.finishing_types
   FOR DELETE USING (public.get_my_role() = 'manager');
 
--- -- SEED DEFAULTS -------------------------------------------
-
+-- Seed the starter types (skips any that already exist)
 INSERT INTO public.finishing_types (name) VALUES
   ('Machine Finished'),
   ('Hand Finished'),
@@ -40,5 +41,4 @@ INSERT INTO public.finishing_types (name) VALUES
   ('Folding + Packaging')
 ON CONFLICT (name) DO NOTHING;
 
--- -- REFRESH SCHEMA CACHE ------------------------------------
 NOTIFY pgrst, 'reload schema';
