@@ -39,6 +39,7 @@ export const t = {
     printing: 'Printing',
     finishing: 'Finishing',
     submitted: 'Submitted to Customer',
+    received: 'Received by Customer',
 
     // Stage short labels
     draft_short: 'Draft',
@@ -47,6 +48,7 @@ export const t = {
     printing_short: 'Print',
     finishing_short: 'Finish',
     submitted_short: 'Done',
+    received_short: 'Received',
 
     // Order fields
     orderNumber: 'Order #',
@@ -159,6 +161,11 @@ export const t = {
     qualityCheck: 'Quality Check Passed',
     qualityNotes: 'Quality Notes',
     finishingWorker: 'Finishing Worker',
+    pricePerPiece: 'Price / Piece (EGP)',
+    quantityReceived: 'Quantity Received',
+    totalReceivedRevenue: 'Total Received Revenue',
+    grossProfit: 'Gross Profit',
+    receivedDate: 'Received Date',
     searchFinishingType: 'Search or type new finishing type…',
     addNewFinishingType: 'Add new type',
     finishingTypes: {
@@ -511,6 +518,7 @@ export const t = {
     printing: 'الطباعة',
     finishing: 'التشطيب',
     submitted: 'تسليم للعميل',
+    received: 'استلام العميل',
 
     draft_short: 'مسودة',
     preparation_short: 'تحضير',
@@ -518,6 +526,7 @@ export const t = {
     printing_short: 'طباعة',
     finishing_short: 'تشطيب',
     submitted_short: 'تسليم',
+    received_short: 'استلام',
 
     orderNumber: 'رقم الطلب',
     customerName: 'اسم العميل',
@@ -622,6 +631,11 @@ export const t = {
     qualityCheck: 'اجتاز فحص الجودة',
     qualityNotes: 'ملاحظات الجودة',
     finishingWorker: 'عامل التشطيب',
+    pricePerPiece: 'سعر القطعة (ج.م)',
+    quantityReceived: 'الكمية المستلمة',
+    totalReceivedRevenue: 'إجمالي الإيراد المستلم',
+    grossProfit: 'الربح الإجمالي',
+    receivedDate: 'تاريخ الاستلام',
     searchFinishingType: 'ابحث أو اكتب نوع تشطيب جديد…',
     addNewFinishingType: 'إضافة نوع جديد',
     finishingTypes: {

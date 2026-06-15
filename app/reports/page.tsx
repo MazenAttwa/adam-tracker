@@ -169,7 +169,7 @@ export default function ReportsPage() {
     cutting: tr.cutting,
     printing: tr.printing,
     finishing: tr.finishing,
-    submitted: tr.submitted,
+    submitted: tr.submitted, received: tr.received,
   }
 
   const selectedRetailer = retailers.find(r => r.id === selectedRetailerId)

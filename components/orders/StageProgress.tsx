@@ -22,6 +22,7 @@ export function StageProgress({ currentStage, onStageClick, activeTab, completed
     printing: tr.printing_short,
     finishing: tr.finishing_short,
     submitted: tr.submitted_short,
+    received: tr.received_short,
   }
 
   return (

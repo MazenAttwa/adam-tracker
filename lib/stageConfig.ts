@@ -7,6 +7,7 @@ export const STAGES: Stage[] = [
   'printing',
   'finishing',
   'submitted',
+  'received',
 ]
 
 export const STAGE_ORDER: Record<Stage, number> = {
@@ -16,6 +17,7 @@ export const STAGE_ORDER: Record<Stage, number> = {
   printing: 3,
   finishing: 4,
   submitted: 5,
+  received: 6,
 }
 
 export const NEXT_STAGE: Record<Stage, Stage | null> = {
@@ -24,7 +26,8 @@ export const NEXT_STAGE: Record<Stage, Stage | null> = {
   cutting: 'printing',
   printing: 'finishing',
   finishing: 'submitted',
-  submitted: null,
+  submitted: 'received',
+  received: null,
 }
 
 export const STAGE_COLORS: Record<Stage, string> = {
@@ -34,6 +37,7 @@ export const STAGE_COLORS: Record<Stage, string> = {
   printing: 'bg-indigo-100 text-indigo-700 border-indigo-300',
   finishing: 'bg-orange-100 text-orange-700 border-orange-300',
   submitted: 'bg-green-100 text-green-700 border-green-300',
+  received: 'bg-emerald-100 text-emerald-800 border-emerald-300',
 }
 
 export const STAGE_DOT_COLORS: Record<Stage, string> = {
@@ -43,6 +47,7 @@ export const STAGE_DOT_COLORS: Record<Stage, string> = {
   printing: 'bg-indigo-500',
   finishing: 'bg-orange-500',
   submitted: 'bg-green-500',
+  received: 'bg-emerald-600',
 }
 
 export const STATUS_COLORS = {

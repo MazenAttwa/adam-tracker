@@ -243,6 +243,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     printing: tr.printing,
     finishing: tr.finishing,
     submitted: tr.submitted,
+    received: tr.received,
   }
 
   // ── Cost summary derived values ──────────────────────────────────────────
@@ -264,7 +265,12 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   })()
   const totalCost = materialsCost + fabricCost + cuttingCost + printingCost + finishingCost
   const profitEstimate = linkedSaleAmount !== null ? linkedSaleAmount - totalCost : null
-  const hasCostData = totalCost > 0 || linkedSaleAmount !== null
+  const receivedRevenue = (() => {
+    const d = stageDataMap['received']?.data as Record<string, unknown> | undefined
+    return typeof d?.total_received_revenue === 'number' ? d.total_received_revenue : 0
+  })()
+  const grossProfit = receivedRevenue > 0 ? receivedRevenue - totalCost : null
+  const hasCostData = totalCost > 0 || linkedSaleAmount !== null || receivedRevenue > 0
 
   if (loading || fetching) {
     return (
@@ -431,6 +437,27 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
                     {fmtEGP(totalCost)}
                   </span>
                 </div>
+
+                {/* Received revenue + gross profit */}
+                {receivedRevenue > 0 && (
+                  <>
+                    <div className="flex items-center justify-between py-2 border-t border-gray-100 mt-1">
+                      <span className="text-sm text-gray-600">{tr.totalReceivedRevenue}</span>
+                      <span className="text-sm font-medium text-emerald-700 tabular-nums">
+                        {fmtEGP(receivedRevenue)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <span className="font-semibold text-[#0f1b35]">{tr.grossProfit}</span>
+                      <span className={`font-bold text-lg tabular-nums ${
+                        (grossProfit ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {grossProfit !== null && grossProfit >= 0 ? '+' : ''}
+                        {grossProfit !== null ? fmtEGP(grossProfit) : '—'}
+                      </span>
+                    </div>
+                  </>
+                )}
 
                 {/* Linked sale + profit */}
                 {linkedSaleAmount !== null && (

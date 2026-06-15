@@ -56,7 +56,7 @@ export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProp
     cutting: tr.cutting,
     printing: tr.printing,
     finishing: tr.finishing,
-    submitted: tr.submitted,
+    submitted: tr.submitted, received: tr.received,
   }
 
   return (

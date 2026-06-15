@@ -444,6 +444,42 @@ export function StageForm({ orderId, stage, stageData, canEdit, onSaved }: Stage
         </div>
       )}
 
+      {/* RECEIVED BY CUSTOMER */}
+      {stage === 'received' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input label={tr.pricePerPiece} type="number" disabled={!canEdit}
+            value={str('price_per_piece')}
+            onChange={e => {
+              const price = e.target.value ? Number(e.target.value) : 0
+              const qty = num('quantity_received')
+              set('price_per_piece', price)
+              set('total_received_revenue', price * qty)
+            }} />
+          <Input label={tr.quantityReceived} type="number" disabled={!canEdit}
+            value={str('quantity_received')}
+            onChange={e => {
+              const qty = e.target.value ? Number(e.target.value) : 0
+              const price = num('price_per_piece')
+              set('quantity_received', qty)
+              set('total_received_revenue', price * qty)
+            }} />
+          <Input label={tr.receivedDate} type="date" disabled={!canEdit}
+            value={str('received_date')}
+            onChange={e => set('received_date', e.target.value)} />
+
+          {/* Auto-calculated received revenue */}
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              {tr.totalReceivedRevenue}
+            </label>
+            <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-sm font-bold text-[#0f1b35] tabular-nums">
+              {lang === 'ar' ? 'ج.م ' : 'EGP '}
+              {fmt(num('total_received_revenue'))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── SHARED NOTES ──────────────────────────────────────────────────── */}
       {/* (Cutting/printing/finishing use stage-specific notes fields above;
            other stages get the generic stage notes) */}

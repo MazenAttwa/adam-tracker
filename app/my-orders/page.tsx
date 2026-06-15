@@ -44,7 +44,7 @@ export default function MyOrdersPage() {
 
   const stageLabels: Record<Stage, string> = {
     draft: tr.draft, preparation: tr.preparation,
-    cutting: tr.cutting, printing: tr.printing, finishing: tr.finishing, submitted: tr.submitted,
+    cutting: tr.cutting, printing: tr.printing, finishing: tr.finishing, submitted: tr.submitted, received: tr.received,
   }
 
   if (loading || fetching) {

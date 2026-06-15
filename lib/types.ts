@@ -1,5 +1,5 @@
 export type Role = 'manager' | 'worker' | 'customer'
-export type Stage = 'draft' | 'preparation' | 'cutting' | 'printing' | 'finishing' | 'submitted'
+export type Stage = 'draft' | 'preparation' | 'cutting' | 'printing' | 'finishing' | 'submitted' | 'received'
 export type OrderStatus = 'active' | 'completed' | 'cancelled'
 
 export interface Profile {
@@ -109,6 +109,13 @@ export interface SubmittedData {
   tracking_number?: string
   delivery_address?: string
   received_confirmation?: boolean
+}
+
+export interface ReceivedData {
+  price_per_piece?: number
+  quantity_received?: number
+  total_received_revenue?: number
+  received_date?: string
 }
 
 export interface OrderPhoto {

@@ -85,7 +85,7 @@ export default function DashboardPage() {
     cutting: tr.cutting,
     printing: tr.printing,
     finishing: tr.finishing,
-    submitted: tr.submitted,
+    submitted: tr.submitted, received: tr.received,
   }
 
   const stats = {

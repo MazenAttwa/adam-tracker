@@ -99,7 +99,7 @@ export default function OrdersPage() {
 
   const stageLabels: Record<Stage, string> = {
     draft: tr.draft, preparation: tr.preparation,
-    cutting: tr.cutting, printing: tr.printing, finishing: tr.finishing, submitted: tr.submitted,
+    cutting: tr.cutting, printing: tr.printing, finishing: tr.finishing, submitted: tr.submitted, received: tr.received,
   }
 
   const canEditGantt = profile?.role === 'manager' || profile?.role === 'worker'
