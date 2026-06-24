@@ -56,6 +56,7 @@ export default function MaterialsPage() {
   // Pending photo for the Add modal (uploaded after material is created)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [pendingPreview, setPendingPreview] = useState<string | null>(null)
+  const [pendingReceipt, setPendingReceipt] = useState<File | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   // Reorder state
@@ -126,6 +127,7 @@ export default function MaterialsPage() {
     if (pendingPreview) URL.revokeObjectURL(pendingPreview)
     setPendingFile(null)
     setPendingPreview(null)
+    setPendingReceipt(null)
     if (photoInputRef.current) photoInputRef.current.value = ''
   }
 
@@ -196,12 +198,25 @@ export default function MaterialsPage() {
 
       // Record initial stock as an opening 'in' movement so the ledger stays accurate
       if (newMat && payload.current_quantity > 0) {
+        let initReceiptPath: string | null = null
+        let initReceiptName: string | null = null
+        if (pendingReceipt) {
+          const rext = pendingReceipt.name.split('.').pop() ?? 'jpg'
+          const rpath = `receipts/${newMat.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${rext}`
+          const { error: rErr } = await supabase.storage
+            .from('material-photos')
+            .upload(rpath, pendingReceipt, { contentType: pendingReceipt.type })
+          if (!rErr) { initReceiptPath = rpath; initReceiptName = pendingReceipt.name }
+        }
         await supabase.from('stock_movements').insert({
           material_id: newMat.id,
           type: 'in',
           quantity: payload.current_quantity,
           notes: 'Initial stock',
           purchase_date: new Date().toISOString().slice(0, 10),
+          total_cost: payload.cost_per_unit > 0 ? payload.cost_per_unit * payload.current_quantity : null,
+          receipt_path: initReceiptPath,
+          receipt_name: initReceiptName,
           created_by: profile?.id,
         })
       }
@@ -557,6 +572,19 @@ export default function MaterialsPage() {
                   <p className="text-xs text-gray-400">{tr.clickToUploadPhotos}</p>
                 </button>
               )}
+            </div>
+          )}
+
+          {!editing && (
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-[#0f1b35]">{tr.uploadReceipt}</span>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={e => setPendingReceipt(e.target.files?.[0] ?? null)}
+                className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+              />
+              {pendingReceipt && <p className="text-xs text-gray-500 mt-1">{pendingReceipt.name}</p>}
             </div>
           )}
         </div>
