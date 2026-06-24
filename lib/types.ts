@@ -190,6 +190,10 @@ export interface StockMovement {
   vendor_id: string | null
   created_by: string | null
   created_at: string
+  receipt_path: string | null
+  receipt_name: string | null
+  total_cost: number | null
+  purchase_date: string | null
   materials?: Pick<Material, 'id' | 'name' | 'code' | 'unit'>
   orders?: { order_number: string }
   vendors?: Pick<Vendor, 'id' | 'name'>

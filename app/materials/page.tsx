@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal, ConfirmModal } from '@/components/ui/Modal'
 import { MaterialPhotoUpload } from '@/components/materials/MaterialPhotoUpload'
+import { MaterialHistoryModal } from '@/components/materials/MaterialHistoryModal'
 import { formatDate } from '@/lib/utils'
 import type { Material, MaterialUnit, Vendor } from '@/lib/types'
 
@@ -63,6 +64,10 @@ export default function MaterialsPage() {
   const [reorderVendorId, setReorderVendorId] = useState('')
   const [reorderAmount, setReorderAmount] = useState('')
   const [reordering, setReordering] = useState(false)
+  const [reorderReceipt, setReorderReceipt] = useState<File | null>(null)
+  const [reorderDate, setReorderDate] = useState('')
+  const [stockMap, setStockMap] = useState<Record<string, number>>({})
+  const [historyMaterial, setHistoryMaterial] = useState<Material | null>(null)
 
   useEffect(() => {
     if (loading) return
@@ -80,6 +85,14 @@ export default function MaterialsPage() {
     const list = data ?? []
     setMaterials(list)
     setFetching(false)
+    const { data: mv } = await supabase
+      .from('stock_movements')
+      .select('material_id, type, quantity')
+    const sm: Record<string, number> = {}
+    for (const r of (mv ?? []) as Array<{ material_id: string; type: string; quantity: number }>) {
+      sm[r.material_id] = (sm[r.material_id] ?? 0) + (r.type === 'in' ? r.quantity : -r.quantity)
+    }
+    setStockMap(sm)
     if (list.length > 0) {
       await fetchPhotoMap(list.map(m => m.id))
     }
@@ -181,6 +194,18 @@ export default function MaterialsPage() {
         .single()
       if (error) { setFormError(error.message); setSaving(false); return }
 
+      // Record initial stock as an opening 'in' movement so the ledger stays accurate
+      if (newMat && payload.current_quantity > 0) {
+        await supabase.from('stock_movements').insert({
+          material_id: newMat.id,
+          type: 'in',
+          quantity: payload.current_quantity,
+          notes: 'Initial stock',
+          purchase_date: new Date().toISOString().slice(0, 10),
+          created_by: profile?.id,
+        })
+      }
+
       // Upload pending photo if selected during Add flow
       if (pendingFile && newMat) {
         const ext = pendingFile.name.split('.').pop() ?? 'jpg'
@@ -220,6 +245,8 @@ export default function MaterialsPage() {
     setReorderQty('')
     setReorderVendorId('')
     setReorderAmount('')
+    setReorderReceipt(null)
+    setReorderDate(new Date().toISOString().slice(0, 10))
   }
 
   async function handleReorder() {
@@ -229,12 +256,27 @@ export default function MaterialsPage() {
     const amt = parseFloat(reorderAmount) || 0
     setReordering(true)
 
+    let receiptPath: string | null = null
+    let receiptName: string | null = null
+    if (reorderReceipt) {
+      const ext = reorderReceipt.name.split('.').pop() ?? 'jpg'
+      const path = `receipts/${reorderMaterial.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error: upErr } = await supabase.storage
+        .from('material-photos')
+        .upload(path, reorderReceipt, { contentType: reorderReceipt.type })
+      if (!upErr) { receiptPath = path; receiptName = reorderReceipt.name }
+    }
+
     await supabase.from('stock_movements').insert({
       material_id: reorderMaterial.id,
       type: 'in',
       quantity: qty,
-      notes: `Reorder: ${reorderMaterial.name}`,
+      notes: `Purchase: ${reorderMaterial.name}`,
       vendor_id: reorderVendorId || null,
+      total_cost: amt > 0 ? amt : null,
+      purchase_date: reorderDate || new Date().toISOString().slice(0, 10),
+      receipt_path: receiptPath,
+      receipt_name: receiptName,
       created_by: profile?.id,
     })
 
@@ -275,7 +317,7 @@ export default function MaterialsPage() {
     m.code.toLowerCase().includes(search.toLowerCase())
   )
 
-  const lowStockCount = materials.filter(m => m.current_quantity <= m.minimum_quantity).length
+  const lowStockCount = materials.filter(m => (stockMap[m.id] ?? 0) <= m.minimum_quantity).length
 
   if (loading || fetching) {
     return (
@@ -360,7 +402,7 @@ export default function MaterialsPage() {
                 </thead>
                 <tbody>
                   {filtered.map(m => {
-                    const isLow = m.current_quantity <= m.minimum_quantity
+                    const isLow = (stockMap[m.id] ?? 0) <= m.minimum_quantity
                     const thumbPath = photoUrlMap[m.id]
                     const initials = m.name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
                     return (
@@ -385,7 +427,7 @@ export default function MaterialsPage() {
                         </td>
                         <td className="px-5 py-3.5 text-gray-600">{unitLabel(m.unit)}</td>
                         <td className={`px-5 py-3.5 text-right font-semibold tabular-nums ${isLow ? 'text-red-600' : 'text-[#0f1b35]'}`}>
-                          {m.current_quantity.toLocaleString()}
+                          {(stockMap[m.id] ?? 0).toLocaleString()}
                         </td>
                         <td className="px-5 py-3.5 text-right text-gray-500 tabular-nums">
                           {m.minimum_quantity.toLocaleString()}
@@ -409,12 +451,14 @@ export default function MaterialsPage() {
                         {profile?.role === 'manager' && (
                           <td className="px-5 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-3">
-                              {isLow && (
-                                <button onClick={() => openReorder(m)}
-                                  className="text-xs text-amber-600 hover:underline font-medium">
-                                  {tr.reorder}
-                                </button>
-                              )}
+                              <button onClick={() => openReorder(m)}
+                                className="text-xs text-amber-600 hover:underline font-medium">
+                                {tr.buyMore}
+                              </button>
+                              <button onClick={() => setHistoryMaterial(m)}
+                                className="text-xs text-blue-600 hover:underline font-medium">
+                                {tr.history}
+                              </button>
                               <button onClick={() => openEdit(m)}
                                 className="text-xs text-[#0f1b35] hover:underline font-medium">
                                 {tr.edit}
@@ -535,7 +579,7 @@ export default function MaterialsPage() {
       <Modal
         open={!!reorderMaterial}
         onClose={() => setReorderMaterial(null)}
-        title={`${tr.reorder}: ${reorderMaterial?.name ?? ''}`}
+        title={`${tr.buyMore}: ${reorderMaterial?.name ?? ''}`}
         footer={
           <>
             <Button variant="ghost" onClick={() => setReorderMaterial(null)} disabled={reordering}>{tr.cancel}</Button>
@@ -551,6 +595,12 @@ export default function MaterialsPage() {
             step="0.01"
             value={reorderQty}
             onChange={e => setReorderQty(e.target.value)}
+          />
+          <Input
+            label={tr.purchaseDate}
+            type="date"
+            value={reorderDate}
+            onChange={e => setReorderDate(e.target.value)}
           />
           <Select
             label={tr.linkVendor}
@@ -572,8 +622,21 @@ export default function MaterialsPage() {
               onChange={e => setReorderAmount(e.target.value)}
             />
           )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tr.uploadReceipt}</label>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={e => setReorderReceipt(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+            />
+            {reorderReceipt && <p className="text-xs text-gray-500 mt-1">{reorderReceipt.name}</p>}
+          </div>
         </div>
       </Modal>
+
+      {/* Material history modal */}
+      <MaterialHistoryModal material={historyMaterial} onClose={() => setHistoryMaterial(null)} />
     </div>
   )
 }

@@ -42,12 +42,13 @@ export default function StockPage() {
   const [form, setForm] = useState<MovementForm>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
+  const [stockMap, setStockMap] = useState<Record<string, number>>({})
 
   useEffect(() => {
     if (loading) return
     if (!profile) { router.push('/login'); return }
     if (profile.role === 'customer') { router.push('/my-orders'); return }
-    Promise.all([fetchMovements(), fetchMaterials(), fetchOrders(), fetchVendors()])
+    Promise.all([fetchMovements(), fetchMaterials(), fetchOrders(), fetchVendors(), fetchStockMap()])
       .finally(() => setFetching(false))
   }, [profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -58,6 +59,17 @@ export default function StockPage() {
       .order('created_at', { ascending: false })
       .limit(200)
     setMovements(data ?? [])
+  }
+
+  async function fetchStockMap() {
+    const { data } = await supabase
+      .from('stock_movements')
+      .select('material_id, type, quantity')
+    const sm: Record<string, number> = {}
+    for (const r of (data ?? []) as Array<{ material_id: string; type: string; quantity: number }>) {
+      sm[r.material_id] = (sm[r.material_id] ?? 0) + (r.type === 'in' ? r.quantity : -r.quantity)
+    }
+    setStockMap(sm)
   }
 
   async function fetchMaterials() {
@@ -152,7 +164,7 @@ export default function StockPage() {
 
     setSaving(false)
     setShowForm(false)
-    Promise.all([fetchMovements(), fetchMaterials(), fetchVendors()])
+    Promise.all([fetchMovements(), fetchMaterials(), fetchVendors(), fetchStockMap()])
   }
 
   const filtered = movements.filter(m => {
@@ -200,13 +212,13 @@ export default function StockPage() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {materials.map(m => {
-                const isLow = m.current_quantity <= m.minimum_quantity
+                const isLow = (stockMap[m.id] ?? 0) <= m.minimum_quantity
                 return (
                   <div key={m.id} className={`rounded-xl p-4 border shadow-sm ${isLow ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100'}`}>
                     <p className="text-xs font-mono text-gray-400 mb-1">{m.code}</p>
                     <p className="text-sm font-medium text-[#0f1b35] leading-tight">{m.name}</p>
                     <p className={`text-xl font-bold mt-1 tabular-nums ${isLow ? 'text-red-600' : 'text-[#0f1b35]'}`}>
-                      {m.current_quantity.toLocaleString()}
+                      {(stockMap[m.id] ?? 0).toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-400">
                       {m.unit === 'meter' ? tr.meter : m.unit === 'kg' ? tr.kg : tr.piece}
