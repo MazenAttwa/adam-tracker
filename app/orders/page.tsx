@@ -106,7 +106,7 @@ export default function OrdersPage() {
 
   // Only active finishing orders get a drag handle
   const isDraggableCard = (o: Order) =>
-    stageFilter === 'finishing' && o.status === 'active' && canEditGantt
+    (stageFilter === 'finishing' || stageFilter === 'cutting') && o.status === 'active' && canEditGantt
 
   if (loading || fetching) {
     return (
@@ -189,7 +189,7 @@ export default function OrdersPage() {
         </div>
 
         {/* Drag-to-Gantt hint — only shown on Finishing tab for editors */}
-        {stageFilter === 'finishing' && canEditGantt && filtered.some(o => o.status === 'active') && (
+        {(stageFilter === 'finishing' || stageFilter === 'cutting') && canEditGantt && filtered.some(o => o.status === 'active') && (
           <p className="text-xs text-gray-400 mb-3 flex items-center gap-1.5">
             <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" className="text-gray-300">
               <circle cx="2.5" cy="2"  r="1.5"/>
@@ -232,6 +232,17 @@ export default function OrdersPage() {
         {/* Production planning Gantt — only when Finishing tab is active */}
         {stageFilter === 'finishing' && (
           <ProductionGantt
+            stage="finishing"
+            canEdit={canEditGantt}
+            draggingOrder={draggingOrder}
+            dragOverLineId={dragOverLineId}
+            pendingDrop={pendingDrop}
+            onPendingDropHandled={() => setPendingDrop(null)}
+          />
+        )}
+        {stageFilter === 'cutting' && (
+          <ProductionGantt
+            stage="cutting"
             canEdit={canEditGantt}
             draggingOrder={draggingOrder}
             dragOverLineId={dragOverLineId}

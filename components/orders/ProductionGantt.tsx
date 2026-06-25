@@ -42,6 +42,7 @@ interface Props {
   dragOverLineId?: string | null
   pendingDrop?: { lineId: string; order: DragOrder } | null
   onPendingDropHandled?: () => void
+  stage?: 'finishing' | 'cutting'
 }
 
 export function ProductionGantt({
@@ -50,6 +51,7 @@ export function ProductionGantt({
   dragOverLineId,
   pendingDrop,
   onPendingDropHandled,
+  stage = 'finishing',
 }: Props) {
   const supabase = createClient()
   const { profile } = useAuth()
@@ -86,11 +88,11 @@ export function ProductionGantt({
   // ── Data fetching ─────────────────────────────────────────
   async function fetchData() {
     const [linesRes, assignmentsRes, ordersRes] = await Promise.all([
-      supabase.from('production_lines').select('*').order('display_order').order('created_at'),
-      supabase.from('production_assignments').select('*').order('start_date'),
+      supabase.from('production_lines').select('*').eq('stage', stage).order('display_order').order('created_at'),
+      supabase.from('production_assignments').select('*').eq('stage', stage).order('start_date'),
       supabase.from('orders')
         .select('id, order_number, customer_name')
-        .eq('current_stage', 'finishing')
+        .eq('current_stage', stage)
         .eq('status', 'active'),
     ])
     const fetchedLines = (linesRes.data ?? []) as ProductionLine[]
@@ -137,6 +139,7 @@ export function ProductionGantt({
         const defaults = Array.from({ length: DEFAULT_LINE_COUNT }, (_, i) => ({
           name: `Line ${i + 1}`,
           display_order: i,
+          stage,
           created_by: profile?.id ?? null,
         }))
         await supabase.from('production_lines').insert(defaults)
@@ -146,7 +149,7 @@ export function ProductionGantt({
     init()
 
     const channel = supabase
-      .channel('production-gantt')
+      .channel(`production-gantt-${stage}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'production_lines' }, fetchData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'production_assignments' }, fetchData)
       .subscribe()
@@ -189,6 +192,7 @@ export function ProductionGantt({
     await supabase.from('production_lines').insert({
       name: `Line ${lines.length + 1}`,
       display_order: lines.length,
+      stage,
       created_by: profile?.id,
     })
     fetchData()
@@ -257,6 +261,7 @@ export function ProductionGantt({
     const savedLineId = selectedLineId  // capture before closeModal clears it
 
     const payload = {
+      stage,
       line_id:          selectedLineId,
       order_id:         form.order_id || null,
       order_name:       label,
