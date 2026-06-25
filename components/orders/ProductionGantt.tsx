@@ -83,6 +83,14 @@ export function ProductionGantt({
   const windowStart = getMidnight(-PAST_DAYS)
   const dates = Array.from({ length: WINDOW_DAYS }, (_, i) => getMidnight(i - PAST_DAYS))
   const todayLineX = PAST_DAYS * DAY_WIDTH + DAY_WIDTH / 2
+
+  // Stage-aware labels (Cutting board uses 'Table', Finishing uses 'Line')
+  const stageLabel = stage === 'cutting' ? tr.cutting : tr.finishing
+  const unitName   = stage === 'cutting' ? 'Table' : 'Line'
+  const trAddUnit  = stage === 'cutting' ? tr.addTable : tr.addLine
+  const trUnitHead = stage === 'cutting' ? tr.table : tr.line
+  const trDelUnit  = stage === 'cutting' ? tr.deleteTable : tr.deleteLine
+  const trNoUnits  = stage === 'cutting' ? tr.noTables : tr.noLines
   const shortMonths = lang === 'ar' ? SHORT_MONTHS_AR : SHORT_MONTHS_EN
 
   // ── Data fetching ─────────────────────────────────────────
@@ -137,7 +145,7 @@ export function ProductionGantt({
       if (!cancelled && fetchedLines.length === 0 && canEdit && !didInitRef.current) {
         didInitRef.current = true
         const defaults = Array.from({ length: DEFAULT_LINE_COUNT }, (_, i) => ({
-          name: `Line ${i + 1}`,
+          name: `${unitName} ${i + 1}`,
           display_order: i,
           stage,
           created_by: profile?.id ?? null,
@@ -190,7 +198,7 @@ export function ProductionGantt({
   // ── Line CRUD ─────────────────────────────────────────────
   async function addLine() {
     await supabase.from('production_lines').insert({
-      name: `Line ${lines.length + 1}`,
+      name: `${unitName} ${lines.length + 1}`,
       display_order: lines.length,
       stage,
       created_by: profile?.id,
@@ -340,10 +348,10 @@ export function ProductionGantt({
     <div className="mt-8">
       {/* Section header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-[#0f1b35]">{tr.productionPlan}</h2>
+        <h2 className="text-lg font-bold text-[#0f1b35]">{stageLabel} {tr.productionPlan}</h2>
         {canEdit && (
           <Button size="sm" variant="secondary" onClick={addLine}>
-            + {tr.addLine}
+            + {trAddUnit}
           </Button>
         )}
       </div>
@@ -351,7 +359,7 @@ export function ProductionGantt({
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         {[
-          { label: tr.finishing,   value: finishingOrders.length },
+          { label: stageLabel,     value: finishingOrders.length },
           { label: tr.totalPieces, value: totalPieces || '—' },
           { label: tr.totalHours,  value: totalHours > 0 ? `${totalHours}h` : '—' },
           { label: tr.activeLines, value: linesInUse },
@@ -384,7 +392,7 @@ export function ProductionGantt({
             {/* ── Left: line names ─────────────────────────────── */}
             <div className="w-40 sm:w-52 flex-shrink-0 border-r border-gray-200 bg-gray-50/60">
               <div className="h-10 px-3 flex items-center border-b border-gray-100">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{tr.line}</span>
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{trUnitHead}</span>
               </div>
 
               {lines.map((line, idx) => {
@@ -440,7 +448,7 @@ export function ProductionGantt({
                         <button
                           onClick={() => deleteLine(line.id)}
                           className="text-red-300 hover:text-red-500 opacity-0 group-hover/row:opacity-100 transition-all"
-                          title={tr.deleteLine}
+                          title={trDelUnit}
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -454,7 +462,7 @@ export function ProductionGantt({
 
               {lines.length === 0 && (
                 <div className="h-16 flex items-center justify-center px-4">
-                  <span className="text-xs text-gray-400 text-center">{tr.noLines}</span>
+                  <span className="text-xs text-gray-400 text-center">{trNoUnits}</span>
                 </div>
               )}
             </div>
