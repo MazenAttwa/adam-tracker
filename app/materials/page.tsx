@@ -57,6 +57,7 @@ export default function MaterialsPage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [pendingPreview, setPendingPreview] = useState<string | null>(null)
   const [pendingReceipt, setPendingReceipt] = useState<File | null>(null)
+  const [pendingLogistic, setPendingLogistic] = useState('')
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   // Reorder state
@@ -64,6 +65,7 @@ export default function MaterialsPage() {
   const [reorderQty, setReorderQty] = useState('')
   const [reorderVendorId, setReorderVendorId] = useState('')
   const [reorderAmount, setReorderAmount] = useState('')
+  const [reorderLogistic, setReorderLogistic] = useState('')
   const [reordering, setReordering] = useState(false)
   const [reorderReceipt, setReorderReceipt] = useState<File | null>(null)
   const [reorderDate, setReorderDate] = useState('')
@@ -128,6 +130,7 @@ export default function MaterialsPage() {
     setPendingFile(null)
     setPendingPreview(null)
     setPendingReceipt(null)
+    setPendingLogistic('')
     if (photoInputRef.current) photoInputRef.current.value = ''
   }
 
@@ -215,6 +218,7 @@ export default function MaterialsPage() {
           notes: 'Initial stock',
           purchase_date: new Date().toISOString().slice(0, 10),
           total_cost: payload.cost_per_unit > 0 ? payload.cost_per_unit * payload.current_quantity : null,
+          logistic_cost: pendingLogistic ? Number(pendingLogistic) : null,
           receipt_path: initReceiptPath,
           receipt_name: initReceiptName,
           created_by: profile?.id,
@@ -262,6 +266,7 @@ export default function MaterialsPage() {
     setReorderAmount('')
     setReorderReceipt(null)
     setReorderDate(new Date().toISOString().slice(0, 10))
+    setReorderLogistic('')
   }
 
   async function handleReorder() {
@@ -289,6 +294,7 @@ export default function MaterialsPage() {
       notes: `Purchase: ${reorderMaterial.name}`,
       vendor_id: reorderVendorId || null,
       total_cost: amt > 0 ? amt : null,
+      logistic_cost: reorderLogistic ? Number(reorderLogistic) : null,
       purchase_date: reorderDate || new Date().toISOString().slice(0, 10),
       receipt_path: receiptPath,
       receipt_name: receiptName,
@@ -576,6 +582,7 @@ export default function MaterialsPage() {
           )}
 
           {!editing && (
+            <>
             <div className="space-y-2">
               <span className="text-sm font-medium text-[#0f1b35]">{tr.uploadReceipt}</span>
               <input
@@ -586,6 +593,15 @@ export default function MaterialsPage() {
               />
               {pendingReceipt && <p className="text-xs text-gray-500 mt-1">{pendingReceipt.name}</p>}
             </div>
+            <Input
+              label={tr.logisticCost}
+              type="number"
+              min="0"
+              step="0.01"
+              value={pendingLogistic}
+              onChange={e => setPendingLogistic(e.target.value)}
+            />
+            </>
           )}
         </div>
       </Modal>
@@ -650,6 +666,14 @@ export default function MaterialsPage() {
               onChange={e => setReorderAmount(e.target.value)}
             />
           )}
+          <Input
+            label={tr.logisticCost}
+            type="number"
+            min="0"
+            step="0.01"
+            value={reorderLogistic}
+            onChange={e => setReorderLogistic(e.target.value)}
+          />
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{tr.uploadReceipt}</label>
             <input
