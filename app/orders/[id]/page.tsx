@@ -34,6 +34,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   const [showDelete, setShowDelete] = useState(false)
   const [advancing, setAdvancing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [duplicating, setDuplicating] = useState(false)
 
   // Cost summary state
   const [materialsCost, setMaterialsCost] = useState(0)
@@ -218,6 +219,61 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     await fetchOrder()
   }
 
+  async function handleDuplicate() {
+    if (!order) return
+    setDuplicating(true)
+
+    // Create a fresh order (DB trigger assigns a new order number)
+    const { data: newOrder, error: e0 } = await supabase
+      .from('orders')
+      .insert({
+        customer_name: order.customer_name,
+        customer_phone: order.customer_phone,
+        current_stage: 'draft',
+        status: 'active',
+        created_by: profile?.id,
+        order_number: '',
+      })
+      .select()
+      .single()
+    if (e0 || !newOrder) {
+      setDuplicating(false)
+      alert(lang === 'ar' ? 'تعذر نسخ الطلب' : 'Could not copy order')
+      return
+    }
+    const newId = newOrder.id
+
+    // Copy child rows, stripping ids and re-pointing to the new order
+    const reparent = (rows: unknown[] | null, overrides: Record<string, unknown>) =>
+      (rows ?? []).map(r => {
+        const c = { ...(r as Record<string, unknown>) }
+        delete c.id
+        delete c.created_at
+        delete c.updated_at
+        c.order_id = newId
+        return { ...c, ...overrides }
+      })
+
+    const { data: sd } = await supabase.from('stage_data').select('*').eq('order_id', id)
+    const sdRows = reparent(sd, { is_completed: false, completed_by: null, completed_at: null })
+    if (sdRows.length) await supabase.from('stage_data').insert(sdRows)
+
+    const { data: om } = await supabase.from('order_materials').select('*').eq('order_id', id)
+    const omRows = reparent(om, { is_deducted: false })
+    if (omRows.length) await supabase.from('order_materials').insert(omRows)
+
+    const { data: fm } = await supabase.from('finishing_manufacturers').select('*').eq('order_id', id)
+    const fmRows = reparent(fm, {})
+    if (fmRows.length) await supabase.from('finishing_manufacturers').insert(fmRows)
+
+    const { data: ph } = await supabase.from('order_photos').select('*').eq('order_id', id)
+    const phRows = reparent(ph, {})
+    if (phRows.length) await supabase.from('order_photos').insert(phRows)
+
+    setDuplicating(false)
+    router.push(`/orders/${newId}`)
+  }
+
   async function handleDelete() {
     setDeleting(true)
 
@@ -347,6 +403,9 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
                     {tr.advance}
                   </Button>
                 )}
+                <Button size="sm" variant="secondary" onClick={handleDuplicate} disabled={duplicating}>
+                  {tr.duplicate}
+                </Button>
                 <Button size="sm" variant="danger" onClick={() => setShowDelete(true)}>
                   {tr.delete}
                 </Button>
