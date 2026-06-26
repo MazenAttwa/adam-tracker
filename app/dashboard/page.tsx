@@ -25,6 +25,8 @@ export default function DashboardPage() {
   const [monthExp, setMonthExp] = useState(0)
   const [lowStock, setLowStock] = useState<Material[]>([])
   const [topRetailers, setTopRetailers] = useState<Retailer[]>([])
+  const [orderLogistics, setOrderLogistics] = useState(0)
+  const [materialLogistics, setMaterialLogistics] = useState(0)
 
   useEffect(() => {
     if (loading) return
@@ -65,11 +67,13 @@ export default function DashboardPage() {
       ? `${y + 1}-01-01`
       : `${y}-${String(now.getMonth() + 2).padStart(2, '0')}-01`
 
-    const [{ data: revD }, { data: expD }, { data: matD }, { data: retD }] = await Promise.all([
+    const [{ data: revD }, { data: expD }, { data: matD }, { data: retD }, { data: sdD }, { data: smD }] = await Promise.all([
       supabase.from('revenue').select('amount').gte('date', start).lt('date', nextM),
       supabase.from('expenses').select('amount').gte('date', start).lt('date', nextM),
       supabase.from('materials').select('*'),
       supabase.from('retailers').select('*').gt('balance', 0).order('balance', { ascending: false }).limit(5),
+      supabase.from('stage_data').select('data'),
+      supabase.from('stock_movements').select('logistic_cost'),
     ])
 
     setMonthRev(((revD ?? []) as { amount: number }[]).reduce((s, r) => s + (r.amount || 0), 0))
@@ -77,6 +81,14 @@ export default function DashboardPage() {
     const allMats = (matD ?? []) as Material[]
     setLowStock(allMats.filter(mat => mat.current_quantity <= mat.minimum_quantity).slice(0, 5))
     setTopRetailers((retD ?? []) as Retailer[])
+
+    const ordLog = ((sdD ?? []) as { data: Record<string, unknown> | null }[]).reduce((s, row) => {
+      const v = row.data?.logistic_cost
+      return s + (typeof v === 'number' ? v : 0)
+    }, 0)
+    setOrderLogistics(ordLog)
+    const matLog = ((smD ?? []) as { logistic_cost: number | null }[]).reduce((s, r) => s + (r.logistic_cost || 0), 0)
+    setMaterialLogistics(matLog)
   }
 
   const stageLabels: Record<Stage, string> = {
@@ -204,6 +216,33 @@ export default function DashboardPage() {
               <p className={`text-3xl font-bold mt-1 tabular-nums ${netProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
                 {netProfit >= 0 ? '+' : ''}{netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Logistics costs (manager only) */}
+        {profile?.role === 'manager' && (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
+            <h2 className="font-semibold text-[#0f1b35] mb-4">{tr.logisticsReport}</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
+                <p className="text-sm text-gray-500">{tr.orderLogistics}</p>
+                <p className="text-2xl font-bold mt-1 text-amber-700 tabular-nums">
+                  {orderLogistics.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
+                <p className="text-sm text-gray-500">{tr.materialLogistics}</p>
+                <p className="text-2xl font-bold mt-1 text-amber-700 tabular-nums">
+                  {materialLogistics.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="bg-[#0f1b35] rounded-xl p-5">
+                <p className="text-sm text-gray-300">{tr.totalLogistics}</p>
+                <p className="text-2xl font-bold mt-1 text-white tabular-nums">
+                  {(orderLogistics + materialLogistics).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
             </div>
           </div>
         )}
