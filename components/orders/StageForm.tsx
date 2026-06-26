@@ -483,6 +483,16 @@ export function StageForm({ orderId, stage, stageData, canEdit, onSaved }: Stage
       {/* ── SHARED NOTES ──────────────────────────────────────────────────── */}
       {/* (Cutting/printing/finishing use stage-specific notes fields above;
            other stages get the generic stage notes) */}
+      {['preparation', 'cutting', 'printing', 'finishing', 'submitted'].includes(stage) && (
+        <Input
+          label={tr.logisticCost}
+          type="number"
+          disabled={!canEdit}
+          value={str('logistic_cost')}
+          onChange={e => set('logistic_cost', e.target.value ? Number(e.target.value) : 0)}
+        />
+      )}
+
       {!['cutting', 'printing', 'finishing'].includes(stage) && (
         <Textarea label={tr.stageNote} disabled={!canEdit}
           value={notes}

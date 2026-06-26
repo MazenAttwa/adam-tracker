@@ -334,7 +334,11 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     const d = stageDataMap['finishing']?.data as Record<string, unknown> | undefined
     return typeof d?.grand_total_finishing_cost === 'number' ? d.grand_total_finishing_cost : 0
   })()
-  const totalCost = materialsCost + fabricCost + cuttingCost + printingCost + finishingCost
+  const logisticsCost = (['preparation', 'cutting', 'printing', 'finishing', 'submitted'] as const).reduce((sum, st) => {
+    const d = stageDataMap[st]?.data as Record<string, unknown> | undefined
+    return sum + (typeof d?.logistic_cost === 'number' ? d.logistic_cost : 0)
+  }, 0)
+  const totalCost = materialsCost + fabricCost + cuttingCost + printingCost + finishingCost + logisticsCost
   const profitEstimate = linkedSaleAmount !== null ? linkedSaleAmount - totalCost : null
   const receivedRevenue = (() => {
     const d = stageDataMap['received']?.data as Record<string, unknown> | undefined
@@ -495,6 +499,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
                   { label: tr.cuttingCost,    value: cuttingCost,    show: cuttingCost > 0 },
                   { label: tr.printingCost,   value: printingCost,   show: printingCost > 0 },
                   { label: tr.finishingCost,  value: finishingCost,  show: finishingCost > 0 },
+                  { label: tr.logistics,      value: logisticsCost,  show: logisticsCost > 0 },
                 ].map(row => row.show && (
                   <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-50">
                     <span className="text-sm text-gray-600">{row.label}</span>
