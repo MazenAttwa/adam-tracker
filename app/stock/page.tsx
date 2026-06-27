@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
+import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Input'
@@ -28,6 +29,7 @@ const emptyForm: MovementForm = {
 export default function StockPage() {
   const { profile, loading } = useAuth()
   const { tr, lang } = useLang()
+  const { showToast } = useToast()
   const router = useRouter()
   const supabase = createClient()
 
@@ -38,6 +40,9 @@ export default function StockPage() {
   const [fetching, setFetching] = useState(true)
   const [filterMaterial, setFilterMaterial] = useState('')
   const [filterType, setFilterType] = useState('')
+  const [adjustMaterial, setAdjustMaterial] = useState<Material | null>(null)
+  const [adjustCount, setAdjustCount] = useState('')
+  const [adjusting, setAdjusting] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<MovementForm>(emptyForm)
   const [saving, setSaving] = useState(false)
@@ -107,6 +112,30 @@ export default function StockPage() {
     setForm(emptyForm)
     setFormError('')
     setShowForm(true)
+  }
+
+  async function handleAdjust() {
+    if (!adjustMaterial) return
+    const count = Number(adjustCount)
+    if (isNaN(count) || count < 0) { showToast(tr.error, 'error'); return }
+    setAdjusting(true)
+    const current = stockMap[adjustMaterial.id] ?? 0
+    const diff = count - current
+    if (diff !== 0) {
+      const { error: mvErr } = await supabase.from('stock_movements').insert({
+        material_id: adjustMaterial.id,
+        type: diff > 0 ? 'in' : 'out',
+        quantity: Math.abs(diff),
+        notes: 'Stock adjustment',
+        created_by: profile?.id,
+      })
+      if (mvErr) { showToast(mvErr.message, 'error'); setAdjusting(false); return }
+    }
+    await supabase.from('materials').update({ current_quantity: count, updated_at: new Date().toISOString() }).eq('id', adjustMaterial.id)
+    setAdjusting(false)
+    setAdjustMaterial(null)
+    showToast(tr.savedOk)
+    Promise.all([fetchMovements(), fetchMaterials(), fetchStockMap()])
   }
 
   async function handleSave() {
@@ -224,6 +253,12 @@ export default function StockPage() {
                       {m.unit === 'meter' ? tr.meter : m.unit === 'kg' ? tr.kg : tr.piece}
                       {isLow && <span className="text-red-500 ml-1">· {tr.lowStock}</span>}
                     </p>
+                    {profile?.role === 'manager' && (
+                      <button onClick={() => { setAdjustMaterial(m); setAdjustCount(String(stockMap[m.id] ?? 0)) }}
+                        className="text-xs text-blue-600 hover:underline font-medium mt-1">
+                        {tr.adjust}
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -361,6 +396,27 @@ export default function StockPage() {
           </Select>
           <Textarea label={tr.notes} value={form.notes} onChange={e => set('notes', e.target.value)} rows={2} />
         </div>
+      </Modal>
+
+      <Modal
+        open={!!adjustMaterial}
+        onClose={() => setAdjustMaterial(null)}
+        title={`: ${adjustMaterial?.name ?? ''}`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setAdjustMaterial(null)} disabled={adjusting}>{tr.cancel}</Button>
+            <Button onClick={handleAdjust} loading={adjusting}>{tr.save}</Button>
+          </>
+        }
+      >
+        <Input
+          label={tr.actualCount}
+          type="number"
+          min="0"
+          step="0.01"
+          value={adjustCount}
+          onChange={e => setAdjustCount(e.target.value)}
+        />
       </Modal>
     </div>
   )
