@@ -327,6 +327,30 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   async function handleDelete() {
     setDeleting(true)
 
+    // Restore stock for any materials this order deducted (add the quantities back)
+    const { data: deductedMats } = await supabase
+      .from('order_materials')
+      .select('material_id, quantity_needed')
+      .eq('order_id', id)
+      .eq('is_deducted', true)
+    if (deductedMats && deductedMats.length > 0) {
+      for (const om of deductedMats as { material_id: string; quantity_needed: number }[]) {
+        const { data: mat } = await supabase
+          .from('materials')
+          .select('current_quantity')
+          .eq('id', om.material_id)
+          .single()
+        if (mat) {
+          await supabase.from('materials')
+            .update({
+              current_quantity: (mat.current_quantity ?? 0) + om.quantity_needed,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', om.material_id)
+        }
+      }
+    }
+
     // Remove all linked records first so foreign keys do not block the delete (full cleanup)
     await supabase.from('stock_movements').delete().eq('order_id', id)
     await supabase.from('order_materials').delete().eq('order_id', id)
