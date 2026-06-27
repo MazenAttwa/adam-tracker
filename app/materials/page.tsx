@@ -255,10 +255,16 @@ export default function MaterialsPage() {
   async function handleDelete() {
     if (!deleteTarget) return
     setDeleting(true)
+    // Collect file paths first so we can clean storage if the delete succeeds
+    const { data: mPhotos } = await supabase.from('material_photos').select('file_path').eq('material_id', deleteTarget.id)
+    const { data: mMoves } = await supabase.from('stock_movements').select('receipt_path').eq('material_id', deleteTarget.id)
     const { error: delErr } = await supabase.from('materials').delete().eq('id', deleteTarget.id)
     setDeleting(false)
     setDeleteTarget(null)
     if (delErr) { showToast(delErr.message, 'error'); return }
+    const mPaths = ((mPhotos ?? []) as { file_path: string }[]).map(p => p.file_path).filter(Boolean)
+    const rPaths = ((mMoves ?? []) as { receipt_path: string | null }[]).map(m => m.receipt_path).filter((x): x is string => !!x)
+    if (mPaths.length || rPaths.length) await supabase.storage.from('material-photos').remove([...mPaths, ...rPaths])
     showToast(tr.savedOk)
     fetchMaterials()
   }
