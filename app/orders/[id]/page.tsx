@@ -10,8 +10,9 @@ import { StageProgress } from '@/components/orders/StageProgress'
 import { StageForm } from '@/components/orders/StageForm'
 import { OrderMaterials } from '@/components/orders/OrderMaterials'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
-import { ConfirmModal } from '@/components/ui/Modal'
+import { ConfirmModal, Modal } from '@/components/ui/Modal'
 import { STAGES, STAGE_COLORS, STATUS_COLORS, NEXT_STAGE, STAGE_ORDER } from '@/lib/stageConfig'
 import { formatDate } from '@/lib/utils'
 import type { Order, StageData, Stage } from '@/lib/types'
@@ -36,6 +37,9 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   const [showDelete, setShowDelete] = useState(false)
   const [advancing, setAdvancing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editForm, setEditForm] = useState({ order_number: '', customer_name: '', customer_phone: '', created_at: '' })
   const [duplicating, setDuplicating] = useState(false)
 
   // Cost summary state
@@ -278,6 +282,33 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     router.push(`/orders/${newId}`)
   }
 
+  function openEditOrder() {
+    if (!order) return
+    setEditForm({
+      order_number: order.order_number,
+      customer_name: order.customer_name,
+      customer_phone: order.customer_phone ?? '',
+      created_at: order.created_at ? order.created_at.slice(0, 10) : '',
+    })
+    setShowEdit(true)
+  }
+
+  async function handleEditSave() {
+    if (!order) return
+    setSavingEdit(true)
+    const { error } = await supabase.from('orders').update({
+      order_number: editForm.order_number.trim(),
+      customer_name: editForm.customer_name.trim(),
+      customer_phone: editForm.customer_phone.trim() || null,
+      created_at: editForm.created_at || order.created_at,
+    }).eq('id', order.id)
+    setSavingEdit(false)
+    if (error) { showToast(error.message, 'error'); return }
+    setShowEdit(false)
+    showToast(tr.savedOk)
+    await fetchOrder()
+  }
+
   async function handleDelete() {
     setDeleting(true)
 
@@ -415,6 +446,9 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
                     {tr.advance}
                   </Button>
                 )}
+                <Button size="sm" variant="secondary" onClick={openEditOrder}>
+                  {tr.edit}
+                </Button>
                 <Button size="sm" variant="secondary" onClick={handleDuplicate} disabled={duplicating}>
                   {tr.duplicate}
                 </Button>
@@ -571,6 +605,26 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
           </div>
         )}
       </main>
+
+      {/* Edit order modal */}
+      <Modal
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        title={tr.editOrder}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowEdit(false)} disabled={savingEdit}>{tr.cancel}</Button>
+            <Button onClick={handleEditSave} loading={savingEdit}>{tr.save}</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input label={tr.orderNumber} value={editForm.order_number} onChange={e => setEditForm({ ...editForm, order_number: e.target.value })} />
+          <Input label={tr.customerName} value={editForm.customer_name} onChange={e => setEditForm({ ...editForm, customer_name: e.target.value })} />
+          <Input label={tr.customerPhone} value={editForm.customer_phone} onChange={e => setEditForm({ ...editForm, customer_phone: e.target.value })} />
+          <Input label={tr.date} type="date" value={editForm.created_at} onChange={e => setEditForm({ ...editForm, created_at: e.target.value })} />
+        </div>
+      </Modal>
 
       {/* Advance modal */}
       <ConfirmModal
