@@ -213,7 +213,7 @@ export default function MaterialsPage() {
             .upload(rpath, pendingReceipt, { contentType: pendingReceipt.type })
           if (!rErr) { initReceiptPath = rpath; initReceiptName = pendingReceipt.name }
         }
-        await supabase.from('stock_movements').insert({
+        const { error: mvErr } = await supabase.from('stock_movements').insert({
           material_id: newMat.id,
           type: 'in',
           quantity: payload.current_quantity,
@@ -255,9 +255,11 @@ export default function MaterialsPage() {
   async function handleDelete() {
     if (!deleteTarget) return
     setDeleting(true)
-    await supabase.from('materials').delete().eq('id', deleteTarget.id)
+    const { error: delErr } = await supabase.from('materials').delete().eq('id', deleteTarget.id)
     setDeleting(false)
     setDeleteTarget(null)
+    if (delErr) { showToast(delErr.message, 'error'); return }
+    showToast(tr.savedOk)
     fetchMaterials()
   }
 
@@ -289,7 +291,7 @@ export default function MaterialsPage() {
       if (!upErr) { receiptPath = path; receiptName = reorderReceipt.name }
     }
 
-    await supabase.from('stock_movements').insert({
+    const { error: mvErr } = await supabase.from('stock_movements').insert({
       material_id: reorderMaterial.id,
       type: 'in',
       quantity: qty,
@@ -302,6 +304,7 @@ export default function MaterialsPage() {
       receipt_name: receiptName,
       created_by: profile?.id,
     })
+    if (mvErr) { showToast(mvErr.message, 'error'); setReordering(false); return }
 
     await supabase.from('materials').update({
       current_quantity: reorderMaterial.current_quantity + qty,
