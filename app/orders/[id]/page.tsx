@@ -275,8 +275,23 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     if (fmRows.length) await supabase.from('finishing_manufacturers').insert(fmRows)
 
     const { data: ph } = await supabase.from('order_photos').select('*').eq('order_id', id)
-    const phRows = reparent(ph, {})
-    if (phRows.length) await supabase.from('order_photos').insert(phRows)
+    for (const raw of (ph ?? []) as Record<string, unknown>[]) {
+      const srcPath = raw.file_path as string
+      let newPath = srcPath
+      // Copy the physical file so the duplicate owns an independent copy
+      const dl = await supabase.storage.from('product-photos').download(srcPath)
+      if (dl.data) {
+        const ext = srcPath.split('.').pop() ?? 'jpg'
+        newPath = `/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        await supabase.storage.from('product-photos').upload(newPath, dl.data)
+      }
+      await supabase.from('order_photos').insert({
+        order_id: newId,
+        file_path: newPath,
+        file_name: raw.file_name,
+        uploaded_by: profile?.id,
+      })
+    }
 
     setDuplicating(false)
     router.push(`/orders/${newId}`)
@@ -318,8 +333,14 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     await supabase.from('finishing_manufacturers').delete().eq('order_id', id)
     // Remove order photo files from storage before deleting their rows (avoid orphans)
     const { data: ordPhotos } = await supabase.from('order_photos').select('file_path').eq('order_id', id)
-    const photoPaths = ((ordPhotos ?? []) as { file_path: string }[]).map(p => p.file_path).filter(Boolean)
-    if (photoPaths.length) await supabase.storage.from('product-photos').remove(photoPaths)
+    const myPaths = ((ordPhotos ?? []) as { file_path: string }[]).map(p => p.file_path).filter(Boolean)
+    // Only remove files that no OTHER order still references (duplicated orders can share files)
+    if (myPaths.length) {
+      const { data: others } = await supabase.from('order_photos').select('file_path').in('file_path', myPaths).neq('order_id', id)
+      const sharedPaths = new Set(((others ?? []) as { file_path: string }[]).map(p => p.file_path))
+      const safeToRemove = myPaths.filter(p => !sharedPaths.has(p))
+      if (safeToRemove.length) await supabase.storage.from('product-photos').remove(safeToRemove)
+    }
     await supabase.from('order_photos').delete().eq('order_id', id)
     await supabase.from('production_assignments').delete().eq('order_id', id)
     await supabase.from('revenue').delete().eq('order_id', id)
