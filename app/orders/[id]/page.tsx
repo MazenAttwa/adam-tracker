@@ -262,17 +262,12 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
         return { ...c, ...overrides }
       })
 
-    const { data: sd } = await supabase.from('stage_data').select('*').eq('order_id', id)
+    const { data: sd } = await supabase.from('stage_data').select('*').eq('order_id', id).eq('stage', 'draft')
     const sdRows = reparent(sd, { is_completed: false, completed_by: null, completed_at: null })
     if (sdRows.length) await supabase.from('stage_data').insert(sdRows)
 
-    const { data: om } = await supabase.from('order_materials').select('*').eq('order_id', id)
-    const omRows = reparent(om, { is_deducted: false })
-    if (omRows.length) await supabase.from('order_materials').insert(omRows)
-
-    const { data: fm } = await supabase.from('finishing_manufacturers').select('*').eq('order_id', id)
-    const fmRows = reparent(fm, {})
-    if (fmRows.length) await supabase.from('finishing_manufacturers').insert(fmRows)
+    // Materials, finishing manufacturers, and all production-stage costs are NOT copied:
+    // a duplicate starts as a clean draft with an empty Cost Summary (re-select materials per order).
 
     const { data: ph } = await supabase.from('order_photos').select('*').eq('order_id', id)
     for (const raw of (ph ?? []) as Record<string, unknown>[]) {
