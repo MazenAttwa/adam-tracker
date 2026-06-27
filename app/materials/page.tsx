@@ -58,6 +58,7 @@ export default function MaterialsPage() {
   const [pendingPreview, setPendingPreview] = useState<string | null>(null)
   const [pendingReceipt, setPendingReceipt] = useState<File | null>(null)
   const [pendingLogistic, setPendingLogistic] = useState('')
+  const [pendingPurchaseDate, setPendingPurchaseDate] = useState(new Date().toISOString().slice(0, 10))
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   // Reorder state
@@ -131,6 +132,7 @@ export default function MaterialsPage() {
     setPendingPreview(null)
     setPendingReceipt(null)
     setPendingLogistic('')
+    setPendingPurchaseDate(new Date().toISOString().slice(0, 10))
     if (photoInputRef.current) photoInputRef.current.value = ''
   }
 
@@ -216,7 +218,7 @@ export default function MaterialsPage() {
           type: 'in',
           quantity: payload.current_quantity,
           notes: 'Initial stock',
-          purchase_date: new Date().toISOString().slice(0, 10),
+          purchase_date: pendingPurchaseDate || new Date().toISOString().slice(0, 10),
           total_cost: payload.cost_per_unit > 0 ? payload.cost_per_unit * payload.current_quantity : null,
           logistic_cost: pendingLogistic ? Number(pendingLogistic) : null,
           receipt_path: initReceiptPath,
@@ -583,6 +585,12 @@ export default function MaterialsPage() {
 
           {!editing && (
             <>
+            <Input
+              label={tr.purchaseDate}
+              type="date"
+              value={pendingPurchaseDate}
+              onChange={e => setPendingPurchaseDate(e.target.value)}
+            />
             <div className="space-y-2">
               <span className="text-sm font-medium text-[#0f1b35]">{tr.uploadReceipt}</span>
               <input
