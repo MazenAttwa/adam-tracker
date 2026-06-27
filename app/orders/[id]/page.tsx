@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
+import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { StageProgress } from '@/components/orders/StageProgress'
 import { StageForm } from '@/components/orders/StageForm'
@@ -23,6 +24,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   const { id } = use(props.params)
   const { profile, loading } = useAuth()
   const { tr, lang } = useLang()
+  const { showToast } = useToast()
   const router = useRouter()
   const supabase = createClient()
 
@@ -153,7 +155,8 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
 
     const updates: Partial<Order> = { current_stage: next }
     if (next === 'received') updates.status = 'completed'
-    await supabase.from('orders').update(updates).eq('id', id)
+    const { error: advErr } = await supabase.from('orders').update(updates).eq('id', id)
+    if (advErr) { showToast(tr.error, 'error'); setAdvancing(false); return }
 
     // When submitted: auto-create revenue entry + manufacturing expense entries
     if (next === 'submitted') {
@@ -217,6 +220,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     setAdvancing(false)
     setShowAdvance(false)
     await fetchOrder()
+    showToast(tr.savedOk)
   }
 
   async function handleDuplicate() {
@@ -238,7 +242,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
       .single()
     if (e0 || !newOrder) {
       setDuplicating(false)
-      alert(lang === 'ar' ? 'تعذر نسخ الطلب' : 'Could not copy order')
+      showToast(lang === 'ar' ? 'تعذر نسخ الطلب' : 'Could not copy order', 'error')
       return
     }
     const newId = newOrder.id
@@ -291,7 +295,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     setDeleting(false)
     setShowDelete(false)
     if (error) {
-      alert(lang === 'ar' ? 'تعذر حذف الطلب: ' + error.message : 'Could not delete order: ' + error.message)
+      showToast(lang === 'ar' ? 'تعذر حذف الطلب: ' + error.message : 'Could not delete order: ' + error.message, 'error')
       return
     }
     router.push('/orders')
