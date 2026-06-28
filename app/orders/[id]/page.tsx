@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, use } from 'react'
+import { useEffect, useState, useRef, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
@@ -32,6 +32,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   const [order, setOrder] = useState<Order | null>(null)
   const [stageDataMap, setStageDataMap] = useState<Record<string, StageData>>({})
   const [activeTab, setActiveTab] = useState<Stage>('draft')
+  const revenueSyncedRef = useRef<string | null>(null)
   const [fetching, setFetching] = useState(true)
   const [showAdvance, setShowAdvance] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
@@ -61,6 +62,15 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
 
     return () => { supabase.removeChannel(channel) }
   }, [id, profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Once an order is at 'received' with a value, make sure it's counted as revenue (no manual save needed)
+  useEffect(() => {
+    if (!order || order.current_stage !== 'received') return
+    if (!stageDataMap['received']) return
+    if (revenueSyncedRef.current === order.id) return
+    revenueSyncedRef.current = order.id
+    void syncReceivedRevenue()
+  }, [order, stageDataMap]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchOrder() {
     const { data } = await supabase.from('orders').select('*').eq('id', id).single()
@@ -107,6 +117,29 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   }
 
   // Auto-record a Sale (direct customer, no retailer) when the Received stage has revenue
+  // Reflect a received order's value in the Revenue table (silent, idempotent)
+  async function syncReceivedRevenue() {
+    if (!order || order.current_stage !== 'received') return
+    const d = stageDataMap['received']?.data as Record<string, unknown> | undefined
+    const revenue = typeof d?.total_received_revenue === 'number' ? d.total_received_revenue : 0
+    if (revenue <= 0) return
+    const receivedDate = typeof d?.received_date === 'string' && d.received_date
+      ? d.received_date : new Date().toISOString().split('T')[0]
+    const { data: revRows } = await supabase.from('revenue').select('id, amount').eq('order_id', id).limit(1)
+    const existing = revRows && revRows.length > 0 ? (revRows[0] as { id: string; amount: number }) : null
+    if (existing) {
+      if (existing.amount !== revenue) {
+        await supabase.from('revenue').update({ amount: revenue, date: receivedDate }).eq('id', existing.id)
+      }
+    } else {
+      await supabase.from('revenue').insert({
+        date: receivedDate, type: 'sales', amount: revenue,
+        description: `${order.order_number} — ${order.customer_name}`,
+        order_id: id, created_by: profile?.id,
+      })
+    }
+  }
+
   async function recordSaleFromReceived() {
     if (!order) return
     const { data: rd } = await supabase
