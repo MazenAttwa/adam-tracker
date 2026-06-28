@@ -118,6 +118,23 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     const qty = typeof d.quantity_received === 'number' ? d.quantity_received : 0
     const receivedDate = typeof d.received_date === 'string' && d.received_date
       ? d.received_date : new Date().toISOString().split('T')[0]
+
+    // Reflect the received revenue in the P&L so Reports/profit are correct
+    const { data: revRows } = await supabase.from('revenue').select('id').eq('order_id', id).limit(1)
+    const existingRevId = revRows && revRows.length > 0 ? (revRows[0] as { id: string }).id : null
+    if (existingRevId) {
+      await supabase.from('revenue').update({ amount: revenue, date: receivedDate }).eq('id', existingRevId)
+    } else {
+      await supabase.from('revenue').insert({
+        date: receivedDate,
+        type: 'sales',
+        amount: revenue,
+        description: `${order.order_number} — ${order.customer_name}`,
+        order_id: id,
+        created_by: profile?.id,
+      })
+    }
+
     const item = { name: order.customer_name || order.order_number, quantity: qty, unit_price: pricePer, total: revenue }
     const { data: existing } = await supabase.from('sales').select('id').eq('order_id', id).maybeSingle()
     if (existing) {
