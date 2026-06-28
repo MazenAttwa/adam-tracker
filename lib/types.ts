@@ -299,7 +299,8 @@ export interface Sale {
   id: string
   invoice_number: string
   date: string
-  retailer_id: string
+  retailer_id: string | null
+  customer_name: string | null
   order_id: string | null
   items: SaleItem[]
   total_amount: number

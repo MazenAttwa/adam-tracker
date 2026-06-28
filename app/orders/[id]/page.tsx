@@ -101,6 +101,53 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     }
   }
 
+  async function handleStageSaved() {
+    await fetchStageData()
+    if (activeTab === 'received') await recordSaleFromReceived()
+  }
+
+  // Auto-record a Sale (direct customer, no retailer) when the Received stage has revenue
+  async function recordSaleFromReceived() {
+    if (!order) return
+    const { data: rd } = await supabase
+      .from('stage_data').select('data').eq('order_id', id).eq('stage', 'received').maybeSingle()
+    const d = (rd?.data ?? {}) as Record<string, unknown>
+    const revenue = typeof d.total_received_revenue === 'number' ? d.total_received_revenue : 0
+    if (revenue <= 0) return
+    const pricePer = typeof d.price_per_piece === 'number' ? d.price_per_piece : 0
+    const qty = typeof d.quantity_received === 'number' ? d.quantity_received : 0
+    const receivedDate = typeof d.received_date === 'string' && d.received_date
+      ? d.received_date : new Date().toISOString().split('T')[0]
+    const item = { name: order.customer_name || order.order_number, quantity: qty, unit_price: pricePer, total: revenue }
+    const { data: existing } = await supabase.from('sales').select('id').eq('order_id', id).maybeSingle()
+    if (existing) {
+      await supabase.from('sales').update({
+        customer_name: order.customer_name,
+        date: receivedDate,
+        items: [item],
+        total_amount: revenue,
+        delivery_status: 'delivered',
+        delivery_date: receivedDate,
+        updated_at: new Date().toISOString(),
+      }).eq('id', existing.id)
+    } else {
+      const { error } = await supabase.from('sales').insert({
+        invoice_number: order.order_number,
+        date: receivedDate,
+        retailer_id: null,
+        customer_name: order.customer_name,
+        order_id: id,
+        items: [item],
+        total_amount: revenue,
+        delivery_status: 'delivered',
+        delivery_date: receivedDate,
+        created_by: profile?.id,
+      })
+      if (error) { showToast(error.message, 'error'); return }
+      showToast(tr.savedOk)
+    }
+  }
+
   async function handleAdvance() {
     if (!order) return
     const next = NEXT_STAGE[order.current_stage]
@@ -561,7 +608,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
             stage={activeTab}
             stageData={stageDataMap[activeTab] ?? null}
             canEdit={canEditStage(activeTab)}
-            onSaved={fetchStageData}
+            onSaved={handleStageSaved}
           />
         </div>
 

@@ -137,7 +137,7 @@ export default function SalesPage() {
   function openEdit(sale: Sale) {
     setForm({
       date: sale.date,
-      retailer_id: sale.retailer_id,
+      retailer_id: sale.retailer_id ?? '',
       order_id: sale.order_id ?? '',
       delivery_status: sale.delivery_status,
       delivery_date: sale.delivery_date ?? '',
@@ -324,7 +324,7 @@ export default function SalesPage() {
     </div>
     <div class="party" style="text-align:right">
       <h4>Bill To</h4>
-      <p style="font-weight:600">${retailer?.name ?? '—'}</p>
+      <p style="font-weight:600">${retailer?.name ?? sale.customer_name ?? '—'}</p>
       ${retailer?.phone ? `<p>${retailer.phone}</p>` : ''}
       ${retailer?.address ? `<p>${retailer.address}</p>` : ''}
     </div>
@@ -463,7 +463,7 @@ export default function SalesPage() {
                       <td className="px-5 py-3.5 font-mono text-xs text-gray-500">{sale.invoice_number}</td>
                       <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap">{formatDate(sale.date, lang)}</td>
                       <td className="px-5 py-3.5 font-medium text-[#0f1b35]">
-                        {(sale.retailers as Retailer | undefined)?.name ?? retailers.find(r => r.id === sale.retailer_id)?.name ?? '—'}
+                        {(sale.retailers as Retailer | undefined)?.name ?? retailers.find(r => r.id === sale.retailer_id)?.name ?? sale.customer_name ?? '—'}
                       </td>
                       <td className="px-5 py-3.5 text-gray-500">
                         {sale.items.length} {tr.itemName.toLowerCase()}{sale.items.length !== 1 ? 's' : ''}
