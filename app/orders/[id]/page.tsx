@@ -313,6 +313,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
           category: 'manufacturing',
           amount: entry.amount,
           description: entry.desc,
+          order_id: id,
           created_by: profile?.id,
         })
       }
@@ -460,6 +461,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     await supabase.from('order_photos').delete().eq('order_id', id)
     await supabase.from('production_assignments').delete().eq('order_id', id)
     await supabase.from('revenue').delete().eq('order_id', id)
+    await supabase.from('expenses').delete().eq('order_id', id)
     await supabase.from('sales').delete().eq('order_id', id)
     await supabase.from('stage_data').delete().eq('order_id', id)
 
