@@ -25,7 +25,16 @@ interface MaterialUsage {
   net: number
 }
 
-type ReportTab = 'pnl' | 'orders' | 'materials' | 'retailers'
+interface ProfitRow {
+  id: string
+  order_number: string
+  customer_name: string
+  revenue: number
+  cost: number
+  profit: number
+}
+
+type ReportTab = 'pnl' | 'orders' | 'materials' | 'retailers' | 'profit'
 
 const STAGES: Stage[] = ['draft', 'preparation', 'cutting', 'printing', 'finishing', 'submitted']
 
@@ -43,6 +52,7 @@ export default function ReportsPage() {
 
   // Orders data
   const [orders, setOrders] = useState<Order[]>([])
+  const [profitRows, setProfitRows] = useState<ProfitRow[]>([])
   const [orderDateFrom, setOrderDateFrom] = useState('')
   const [orderDateTo, setOrderDateTo] = useState('')
 
@@ -62,7 +72,43 @@ export default function ReportsPage() {
   }, [profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchAll() {
-    await Promise.all([fetchPLData(), fetchOrdersData(), fetchMaterialsData(), fetchRetailersData()])
+    await Promise.all([fetchPLData(), fetchOrdersData(), fetchMaterialsData(), fetchRetailersData(), fetchProfitData()])
+  }
+
+  async function fetchProfitData() {
+    const [{ data: ords }, { data: sd }, { data: oms }, { data: mats }] = await Promise.all([
+      supabase.from('orders').select('id, order_number, customer_name').limit(1000),
+      supabase.from('stage_data').select('order_id, stage, data'),
+      supabase.from('order_materials').select('order_id, quantity_needed, material_id'),
+      supabase.from('materials').select('id, cost_per_unit'),
+    ])
+    const price: Record<string, number> = {}
+    ;((mats ?? []) as { id: string; cost_per_unit: number | null }[]).forEach(m => { price[m.id] = m.cost_per_unit ?? 0 })
+    const matCost: Record<string, number> = {}
+    ;((oms ?? []) as { order_id: string; quantity_needed: number | null; material_id: string }[]).forEach(om => {
+      matCost[om.order_id] = (matCost[om.order_id] ?? 0) + (om.quantity_needed ?? 0) * (price[om.material_id] ?? 0)
+    })
+    const byOrder: Record<string, Record<string, Record<string, unknown>>> = {}
+    ;((sd ?? []) as { order_id: string; stage: string; data: Record<string, unknown> | null }[]).forEach(r => {
+      if (!byOrder[r.order_id]) byOrder[r.order_id] = {}
+      byOrder[r.order_id][r.stage] = r.data ?? {}
+    })
+    const num = (v: unknown) => (typeof v === 'number' ? v : 0)
+    const rows: ProfitRow[] = ((ords ?? []) as { id: string; order_number: string; customer_name: string }[]).map(o => {
+      const sm = byOrder[o.id] ?? {}
+      const fabric = num(sm['preparation']?.['fabric_total_cost'])
+      const cutting = num(sm['cutting']?.['total_cutting_cost'])
+      const printing = num(sm['printing']?.['total_printing_cost'])
+      const finishing = num(sm['finishing']?.['grand_total_finishing_cost'])
+      const logistics = ['preparation', 'cutting', 'printing', 'finishing', 'submitted']
+        .reduce((s, st) => s + num(sm[st]?.['logistic_cost']), 0)
+      const materials = matCost[o.id] ?? 0
+      const cost = materials + fabric + cutting + printing + finishing + logistics
+      const revenue = num(sm['received']?.['total_received_revenue'])
+      return { id: o.id, order_number: o.order_number, customer_name: o.customer_name, revenue, cost, profit: revenue - cost }
+    }).filter(r => r.revenue > 0 || r.cost > 0)
+    rows.sort((a, b) => b.revenue - a.revenue || b.profit - a.profit)
+    setProfitRows(rows)
   }
 
   async function fetchPLData() {
@@ -229,6 +275,7 @@ export default function ReportsPage() {
     { key: 'orders', label: tr.ordersReport },
     { key: 'materials', label: tr.materialsUsageReport },
     { key: 'retailers', label: tr.retailerStatements },
+    { key: 'profit', label: tr.profitPerOrder },
   ]
 
   const totalPLRevenue = monthPL.reduce((s, m) => s + m.revenue, 0)
@@ -439,6 +486,70 @@ export default function ReportsPage() {
         )}
 
         {/* Materials Usage Report */}
+        {tab === 'profit' && (() => {
+          const totRev = profitRows.reduce((s, r) => s + r.revenue, 0)
+          const totCost = profitRows.reduce((s, r) => s + r.cost, 0)
+          const totProfit = totRev - totCost
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-green-50 rounded-xl p-5 border border-green-100">
+                  <p className="text-sm text-gray-500">{tr.totalRevenue}</p>
+                  <p className="text-2xl font-bold text-green-700 tabular-nums mt-1">{totRev.toFixed(2)}</p>
+                </div>
+                <div className="bg-red-50 rounded-xl p-5 border border-red-100">
+                  <p className="text-sm text-gray-500">{tr.cost}</p>
+                  <p className="text-2xl font-bold text-red-700 tabular-nums mt-1">{totCost.toFixed(2)}</p>
+                </div>
+                <div className={`${totProfit >= 0 ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'} rounded-xl p-5 border`}>
+                  <p className="text-sm text-gray-500">{tr.profit}</p>
+                  <p className={`text-2xl font-bold tabular-nums mt-1 ${totProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>{totProfit.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h2 className="font-semibold text-[#0f1b35]">{tr.profitPerOrder}</h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-left">
+                        <th className="px-5 py-3 font-medium text-gray-600">{tr.orderNumber}</th>
+                        <th className="px-5 py-3 font-medium text-gray-600">{tr.customer}</th>
+                        <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.revenue}</th>
+                        <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.cost}</th>
+                        <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.profit}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {profitRows.map(r => (
+                        <tr key={r.id} className="border-b border-gray-50">
+                          <td className="px-5 py-3 font-medium text-[#0f1b35] whitespace-nowrap">{r.order_number}</td>
+                          <td className="px-5 py-3 text-gray-600">{r.customer_name}</td>
+                          <td className="px-5 py-3 text-right tabular-nums text-green-700">{r.revenue.toFixed(2)}</td>
+                          <td className="px-5 py-3 text-right tabular-nums text-gray-700">{r.cost.toFixed(2)}</td>
+                          <td className={`px-5 py-3 text-right tabular-nums font-semibold ${r.profit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{r.profit.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                      {profitRows.length === 0 && (
+                        <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">—</td></tr>
+                      )}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-200 font-bold">
+                        <td className="px-5 py-3" colSpan={2}>{tr.grandTotal}</td>
+                        <td className="px-5 py-3 text-right tabular-nums text-green-700">{totRev.toFixed(2)}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{totCost.toFixed(2)}</td>
+                        <td className={`px-5 py-3 text-right tabular-nums ${totProfit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{totProfit.toFixed(2)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         {tab === 'materials' && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">

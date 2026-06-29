@@ -370,6 +370,10 @@ export const t = {
 
     // Revenue
     revenue: 'Revenue',
+    profitPerOrder: 'Profit per Order',
+    cost: 'Cost',
+    profit: 'Profit',
+    grandTotal: 'Grand Total',
     addRevenue: 'Add Revenue',
     editRevenue: 'Edit Revenue',
     revenueType: 'Revenue Type',
@@ -857,6 +861,10 @@ export const t = {
     expensesByCategory: 'حسب الفئة',
 
     revenue: 'الإيرادات',
+    profitPerOrder: 'ربح كل طلب',
+    cost: 'التكلفة',
+    profit: 'الربح',
+    grandTotal: 'الإجمالي الكلي',
     addRevenue: 'إضافة إيراد',
     editRevenue: 'تعديل الإيراد',
     revenueType: 'نوع الإيراد',
