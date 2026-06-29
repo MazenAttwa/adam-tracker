@@ -350,6 +350,7 @@ export default function MaterialsPage() {
   )
 
   const lowStockCount = materials.filter(m => (stockMap[m.id] ?? 0) <= m.minimum_quantity).length
+  const totalStockValue = materials.reduce((sum, m) => sum + (stockMap[m.id] ?? 0) * m.cost_per_unit, 0)
 
   if (loading || fetching) {
     return (
@@ -383,7 +384,7 @@ export default function MaterialsPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
             <p className="text-sm text-gray-500">{tr.totalMaterials}</p>
             <p className="text-3xl font-bold mt-1 text-[#0f1b35]">{materials.length}</p>
@@ -391,6 +392,10 @@ export default function MaterialsPage() {
           <div className={`rounded-xl p-5 border shadow-sm ${lowStockCount > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100'}`}>
             <p className="text-sm text-gray-500">{tr.lowStockCount}</p>
             <p className={`text-3xl font-bold mt-1 ${lowStockCount > 0 ? 'text-red-600' : 'text-[#0f1b35]'}`}>{lowStockCount}</p>
+          </div>
+          <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+            <p className="text-sm text-gray-500">{tr.totalStockValue}</p>
+            <p className="text-2xl font-bold mt-1 text-[#0f1b35] tabular-nums">EGP {totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         </div>
 
