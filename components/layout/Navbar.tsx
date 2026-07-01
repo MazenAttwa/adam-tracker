@@ -31,6 +31,7 @@ export function Navbar() {
         { href: '/retailers', label: tr.retailers },
         { href: '/sales', label: tr.sales },
         { href: '/reports', label: tr.reports },
+    { href: '/logistics', label: tr.logistics },
       ]
     : [
         { href: '/dashboard', label: tr.dashboard },
