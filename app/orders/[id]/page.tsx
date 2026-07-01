@@ -299,12 +299,19 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
       const finishingData = stageDataMap['finishing']?.data as Record<string, unknown> | undefined
       const finishingCostForExpense = typeof finishingData?.grand_total_finishing_cost === 'number' ? finishingData.grand_total_finishing_cost : 0
 
+      // Logistics cost (sum across stages)
+      const logisticsForExpense = (['preparation', 'cutting', 'printing', 'finishing', 'submitted'] as const).reduce((s, st) => {
+        const d = stageDataMap[st]?.data as Record<string, unknown> | undefined
+        return s + (typeof d?.logistic_cost === 'number' ? d.logistic_cost : 0)
+      }, 0)
+
       const expenseEntries = [
         { amount: matCost,                 desc: `${order.order_number} — Materials` },
         { amount: fabricCostForExpense,    desc: `${order.order_number} — Fabric` },
         { amount: cuttingCostForExpense,   desc: `${order.order_number} — Cutting` },
         { amount: printingCostForExpense,  desc: `${order.order_number} — Printing` },
         { amount: finishingCostForExpense, desc: `${order.order_number} — Finishing` },
+        { amount: logisticsForExpense,     desc: `${order.order_number} — Logistics` },
       ].filter(e => e.amount > 0)
 
       for (const entry of expenseEntries) {
