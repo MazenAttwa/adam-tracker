@@ -388,6 +388,8 @@ export const t = {
 
     // Financial dashboard
     netProfit: 'Net Profit',
+    thisMonth: 'This Month',
+    allTime: 'All Time (since start)',
     financialSummary: 'This Month',
     revenueVsExpenses: 'Revenue vs Expenses',
     last6Months: 'Last 6 Months',
@@ -879,6 +881,8 @@ export const t = {
     autoRevenue: 'تم تسليم الطلب',
 
     netProfit: 'صافي الربح',
+    thisMonth: 'هذا الشهر',
+    allTime: 'الإجمالي منذ البداية',
     financialSummary: 'هذا الشهر',
     revenueVsExpenses: 'الإيرادات مقابل المصروفات',
     last6Months: 'آخر 6 أشهر',

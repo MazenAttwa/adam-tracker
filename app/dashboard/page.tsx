@@ -23,6 +23,8 @@ export default function DashboardPage() {
   // Manager-only extras
   const [monthRev, setMonthRev] = useState(0)
   const [monthExp, setMonthExp] = useState(0)
+  const [allRev, setAllRev] = useState(0)
+  const [allExp, setAllExp] = useState(0)
   const [lowStock, setLowStock] = useState<Material[]>([])
   const [topRetailers, setTopRetailers] = useState<Retailer[]>([])
   const [orderLogistics, setOrderLogistics] = useState(0)
@@ -67,17 +69,21 @@ export default function DashboardPage() {
       ? `${y + 1}-01-01`
       : `${y}-${String(now.getMonth() + 2).padStart(2, '0')}-01`
 
-    const [{ data: revD }, { data: expD }, { data: matD }, { data: retD }, { data: sdD }, { data: smD }] = await Promise.all([
+    const [{ data: revD }, { data: expD }, { data: matD }, { data: retD }, { data: sdD }, { data: smD }, { data: allRevD }, { data: allExpD }] = await Promise.all([
       supabase.from('revenue').select('amount').gte('date', start).lt('date', nextM),
       supabase.from('expenses').select('amount').gte('date', start).lt('date', nextM),
       supabase.from('materials').select('*'),
       supabase.from('retailers').select('*').gt('balance', 0).order('balance', { ascending: false }).limit(5),
       supabase.from('stage_data').select('data'),
       supabase.from('stock_movements').select('logistic_cost'),
+      supabase.from('revenue').select('amount'),
+      supabase.from('expenses').select('amount'),
     ])
 
     setMonthRev(((revD ?? []) as { amount: number }[]).reduce((s, r) => s + (r.amount || 0), 0))
     setMonthExp(((expD ?? []) as { amount: number }[]).reduce((s, e) => s + (e.amount || 0), 0))
+    setAllRev(((allRevD ?? []) as { amount: number }[]).reduce((s, r) => s + (r.amount || 0), 0))
+    setAllExp(((allExpD ?? []) as { amount: number }[]).reduce((s, e) => s + (e.amount || 0), 0))
     const allMats = (matD ?? []) as Material[]
     setLowStock(allMats.filter(mat => mat.current_quantity <= mat.minimum_quantity).slice(0, 5))
     setTopRetailers((retD ?? []) as Retailer[])
@@ -112,6 +118,7 @@ export default function DashboardPage() {
   }, {} as Record<Stage, number>)
 
   const netProfit = monthRev - monthExp
+  const allProfit = allRev - allExp
 
   if (loading || fetching) {
     return (
@@ -196,28 +203,52 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Monthly P&L (manager only) */}
+        {/* Financial summary: this month + all-time (manager only) */}
         {profile?.role === 'manager' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <>
+          <h2 className="text-lg font-semibold text-[#0f1b35] mb-3">{tr.thisMonth}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div className="bg-green-50 rounded-xl p-6 border border-green-100 shadow-sm">
-              <p className="text-sm text-gray-500">{tr.revenue} · {tr.financialSummary}</p>
+              <p className="text-sm text-gray-500">{tr.revenue}</p>
               <p className="text-3xl font-bold mt-1 text-green-700 tabular-nums">
                 {monthRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className="bg-red-50 rounded-xl p-6 border border-red-100 shadow-sm">
-              <p className="text-sm text-gray-500">{tr.expenses} · {tr.financialSummary}</p>
+              <p className="text-sm text-gray-500">{tr.expenses}</p>
               <p className="text-3xl font-bold mt-1 text-red-700 tabular-nums">
                 {monthExp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className={`${netProfit >= 0 ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'} rounded-xl p-6 border shadow-sm`}>
-              <p className="text-sm text-gray-500">{tr.netProfit} · {tr.financialSummary}</p>
+              <p className="text-sm text-gray-500">{tr.netProfit}</p>
               <p className={`text-3xl font-bold mt-1 tabular-nums ${netProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
                 {netProfit >= 0 ? '+' : ''}{netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>
+          <h2 className="text-lg font-semibold text-[#0f1b35] mb-3">{tr.allTime}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="bg-green-50 rounded-xl p-6 border border-green-100 shadow-sm">
+              <p className="text-sm text-gray-500">{tr.revenue}</p>
+              <p className="text-3xl font-bold mt-1 text-green-700 tabular-nums">
+                {allRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="bg-red-50 rounded-xl p-6 border border-red-100 shadow-sm">
+              <p className="text-sm text-gray-500">{tr.expenses}</p>
+              <p className="text-3xl font-bold mt-1 text-red-700 tabular-nums">
+                {allExp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className={`${allProfit >= 0 ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'} rounded-xl p-6 border shadow-sm`}>
+              <p className="text-sm text-gray-500">{tr.netProfit}</p>
+              <p className={`text-3xl font-bold mt-1 tabular-nums ${allProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                {allProfit >= 0 ? '+' : ''}{allProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+          </div>
+          </>
         )}
 
         {/* Logistics costs (manager only) */}
