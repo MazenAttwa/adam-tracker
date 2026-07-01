@@ -25,6 +25,13 @@ interface MaterialUsage {
   net: number
 }
 
+interface LogisticsRow {
+  kind: 'order' | 'material'
+  ref: string
+  date: string
+  amount: number
+}
+
 interface ProfitRow {
   id: string
   order_number: string
@@ -34,7 +41,7 @@ interface ProfitRow {
   profit: number
 }
 
-type ReportTab = 'pnl' | 'orders' | 'materials' | 'retailers' | 'profit'
+type ReportTab = 'pnl' | 'orders' | 'materials' | 'retailers' | 'profit' | 'logistics'
 
 const STAGES: Stage[] = ['draft', 'preparation', 'cutting', 'printing', 'finishing', 'submitted']
 
@@ -53,6 +60,7 @@ export default function ReportsPage() {
   // Orders data
   const [orders, setOrders] = useState<Order[]>([])
   const [profitRows, setProfitRows] = useState<ProfitRow[]>([])
+  const [logisticsRows, setLogisticsRows] = useState<LogisticsRow[]>([])
   const [orderDateFrom, setOrderDateFrom] = useState('')
   const [orderDateTo, setOrderDateTo] = useState('')
 
@@ -72,7 +80,33 @@ export default function ReportsPage() {
   }, [profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchAll() {
-    await Promise.all([fetchPLData(), fetchOrdersData(), fetchMaterialsData(), fetchRetailersData(), fetchProfitData()])
+    await Promise.all([fetchPLData(), fetchOrdersData(), fetchMaterialsData(), fetchRetailersData(), fetchProfitData(), fetchLogisticsData()])
+  }
+
+  async function fetchLogisticsData() {
+    const [{ data: sd }, { data: sm }, { data: ords }, { data: mats }] = await Promise.all([
+      supabase.from('stage_data').select('order_id, data'),
+      supabase.from('stock_movements').select('material_id, logistic_cost, purchase_date, created_at'),
+      supabase.from('orders').select('id, order_number'),
+      supabase.from('materials').select('id, name'),
+    ])
+    const orderNum: Record<string, string> = {}
+    ;((ords ?? []) as { id: string; order_number: string }[]).forEach(o => { orderNum[o.id] = o.order_number })
+    const byOrder: Record<string, number> = {}
+    ;((sd ?? []) as { order_id: string; data: Record<string, unknown> | null }[]).forEach(r => {
+      const v = r.data?.['logistic_cost']
+      if (typeof v === 'number' && v > 0) byOrder[r.order_id] = (byOrder[r.order_id] ?? 0) + v
+    })
+    const orderRows: LogisticsRow[] = Object.entries(byOrder).map(([oid, amt]) => ({
+      kind: 'order' as const, ref: orderNum[oid] ?? oid, date: '', amount: amt,
+    }))
+    const matName: Record<string, string> = {}
+    ;((mats ?? []) as { id: string; name: string }[]).forEach(m => { matName[m.id] = m.name })
+    const matRows: LogisticsRow[] = ((sm ?? []) as { material_id: string; logistic_cost: number | null; purchase_date: string | null; created_at: string }[])
+      .filter(m => (m.logistic_cost ?? 0) > 0)
+      .map(m => ({ kind: 'material' as const, ref: matName[m.material_id] ?? m.material_id, date: m.purchase_date ?? (m.created_at ? m.created_at.slice(0, 10) : ''), amount: m.logistic_cost ?? 0 }))
+    const rows = [...orderRows, ...matRows].sort((a, b) => b.amount - a.amount)
+    setLogisticsRows(rows)
   }
 
   async function fetchProfitData() {
@@ -276,6 +310,7 @@ export default function ReportsPage() {
     { key: 'materials', label: tr.materialsUsageReport },
     { key: 'retailers', label: tr.retailerStatements },
     { key: 'profit', label: tr.profitPerOrder },
+    { key: 'logistics', label: tr.logisticsReport },
   ]
 
   const totalPLRevenue = monthPL.reduce((s, m) => s + m.revenue, 0)
@@ -541,6 +576,64 @@ export default function ReportsPage() {
                         <td className="px-5 py-3 text-right tabular-nums text-green-700">{totRev.toFixed(2)}</td>
                         <td className="px-5 py-3 text-right tabular-nums">{totCost.toFixed(2)}</td>
                         <td className={`px-5 py-3 text-right tabular-nums ${totProfit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{totProfit.toFixed(2)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {tab === 'logistics' && (() => {
+          const orderTotal = logisticsRows.filter(r => r.kind === 'order').reduce((s, r) => s + r.amount, 0)
+          const matTotal = logisticsRows.filter(r => r.kind === 'material').reduce((s, r) => s + r.amount, 0)
+          const total = orderTotal + matTotal
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
+                  <p className="text-sm text-gray-500">{tr.orderLogistics}</p>
+                  <p className="text-2xl font-bold text-amber-700 tabular-nums mt-1">{orderTotal.toFixed(2)}</p>
+                </div>
+                <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
+                  <p className="text-sm text-gray-500">{tr.materialLogistics}</p>
+                  <p className="text-2xl font-bold text-amber-700 tabular-nums mt-1">{matTotal.toFixed(2)}</p>
+                </div>
+                <div className="bg-[#0f1b35] rounded-xl p-5">
+                  <p className="text-sm text-gray-300">{tr.totalLogistics}</p>
+                  <p className="text-2xl font-bold text-white tabular-nums mt-1">{total.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h2 className="font-semibold text-[#0f1b35]">{tr.logisticsReport}</h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-left">
+                        <th className="px-5 py-3 font-medium text-gray-600">{tr.source}</th>
+                        <th className="px-5 py-3 font-medium text-gray-600">{tr.date}</th>
+                        <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.amount}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logisticsRows.map((r, i) => (
+                        <tr key={i} className="border-b border-gray-50">
+                          <td className="px-5 py-3 font-medium text-[#0f1b35]">{r.ref} <span className="text-xs text-gray-400">({r.kind === 'order' ? tr.orderLogistics : tr.materialLogistics})</span></td>
+                          <td className="px-5 py-3 text-gray-500">{r.date || '-'}</td>
+                          <td className="px-5 py-3 text-right tabular-nums text-amber-700">{r.amount.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                      {logisticsRows.length === 0 && (
+                        <tr><td colSpan={3} className="px-5 py-8 text-center text-gray-400">-</td></tr>
+                      )}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-200 font-bold">
+                        <td className="px-5 py-3" colSpan={2}>{tr.totalLogistics}</td>
+                        <td className="px-5 py-3 text-right tabular-nums text-amber-700">{total.toFixed(2)}</td>
                       </tr>
                     </tfoot>
                   </table>
