@@ -225,6 +225,16 @@ export default function MaterialsPage() {
           receipt_name: initReceiptName,
           created_by: profile?.id,
         })
+        const initLogisticNum = pendingLogistic ? Number(pendingLogistic) : 0
+        if (initLogisticNum > 0) {
+          await supabase.from('expenses').insert({
+            date: pendingPurchaseDate || new Date().toISOString().slice(0, 10),
+            category: 'transport',
+            amount: initLogisticNum,
+            description: `${payload.name} — Material Logistics`,
+            created_by: profile?.id,
+          })
+        }
       }
 
       // Upload pending photo if selected during Add flow
@@ -311,6 +321,16 @@ export default function MaterialsPage() {
       created_by: profile?.id,
     })
     if (mvErr) { showToast(mvErr.message, 'error'); setReordering(false); return }
+    const reorderLogisticNum = reorderLogistic ? Number(reorderLogistic) : 0
+    if (reorderLogisticNum > 0) {
+      await supabase.from('expenses').insert({
+        date: reorderDate || new Date().toISOString().slice(0, 10),
+        category: 'transport',
+        amount: reorderLogisticNum,
+        description: `${reorderMaterial.name} — Material Logistics`,
+        created_by: profile?.id,
+      })
+    }
 
     await supabase.from('materials').update({
       current_quantity: reorderMaterial.current_quantity + qty,
