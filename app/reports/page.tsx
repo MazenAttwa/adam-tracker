@@ -85,7 +85,7 @@ export default function ReportsPage() {
 
   async function fetchLogisticsData() {
     const [{ data: sd }, { data: sm }, { data: ords }, { data: mats }] = await Promise.all([
-      supabase.from('stage_data').select('order_id, data'),
+      supabase.from('stage_data').select('order_id, data, updated_at'),
       supabase.from('stock_movements').select('material_id, logistic_cost, purchase_date, created_at'),
       supabase.from('orders').select('id, order_number'),
       supabase.from('materials').select('id, name'),
@@ -93,12 +93,17 @@ export default function ReportsPage() {
     const orderNum: Record<string, string> = {}
     ;((ords ?? []) as { id: string; order_number: string }[]).forEach(o => { orderNum[o.id] = o.order_number })
     const byOrder: Record<string, number> = {}
-    ;((sd ?? []) as { order_id: string; data: Record<string, unknown> | null }[]).forEach(r => {
+    const byOrderDate: Record<string, string> = {}
+    ;((sd ?? []) as { order_id: string; data: Record<string, unknown> | null; updated_at: string | null }[]).forEach(r => {
       const v = r.data?.['logistic_cost']
-      if (typeof v === 'number' && v > 0) byOrder[r.order_id] = (byOrder[r.order_id] ?? 0) + v
+      if (typeof v === 'number' && v > 0) {
+        byOrder[r.order_id] = (byOrder[r.order_id] ?? 0) + v
+        const d = r.updated_at ? r.updated_at.slice(0, 10) : ''
+        if (d && (!byOrderDate[r.order_id] || d > byOrderDate[r.order_id])) byOrderDate[r.order_id] = d
+      }
     })
     const orderRows: LogisticsRow[] = Object.entries(byOrder).map(([oid, amt]) => ({
-      kind: 'order' as const, ref: orderNum[oid] ?? oid, date: '', amount: amt,
+      kind: 'order' as const, ref: orderNum[oid] ?? oid, date: byOrderDate[oid] ?? '', amount: amt,
     }))
     const matName: Record<string, string> = {}
     ;((mats ?? []) as { id: string; name: string }[]).forEach(m => { matName[m.id] = m.name })
