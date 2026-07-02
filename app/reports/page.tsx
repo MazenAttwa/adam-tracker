@@ -25,6 +25,7 @@ interface MaterialUsage {
   net: number
 }
 
+interface BreakdownRow { key: string; amount: number }
 interface VendorSpendRow { name: string; spend: number; balance: number }
 interface MfrSpendRow { name: string; spend: number }
 interface UsageRow { month: string; qty: number; value: number }
@@ -45,7 +46,7 @@ interface ProfitRow {
   profit: number
 }
 
-type ReportTab = 'pnl' | 'orders' | 'materials' | 'retailers' | 'profit' | 'logistics' | 'spend' | 'usage'
+type ReportTab = 'pnl' | 'orders' | 'materials' | 'retailers' | 'profit' | 'logistics' | 'spend' | 'usage' | 'breakdown'
 
 const STAGES: Stage[] = ['draft', 'preparation', 'cutting', 'printing', 'finishing', 'submitted']
 
@@ -68,6 +69,8 @@ export default function ReportsPage() {
   const [vendorSpendRows, setVendorSpendRows] = useState<VendorSpendRow[]>([])
   const [mfrSpendRows, setMfrSpendRows] = useState<MfrSpendRow[]>([])
   const [usageRows, setUsageRows] = useState<UsageRow[]>([])
+  const [prodBreakdown, setProdBreakdown] = useState<BreakdownRow[]>([])
+  const [expBreakdown, setExpBreakdown] = useState<BreakdownRow[]>([])
   const [orderDateFrom, setOrderDateFrom] = useState('')
   const [orderDateTo, setOrderDateTo] = useState('')
 
@@ -87,7 +90,49 @@ export default function ReportsPage() {
   }, [profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchAll() {
-    await Promise.all([fetchPLData(), fetchOrdersData(), fetchMaterialsData(), fetchRetailersData(), fetchProfitData(), fetchLogisticsData(), fetchSpendData(), fetchUsageData()])
+    await Promise.all([fetchPLData(), fetchOrdersData(), fetchMaterialsData(), fetchRetailersData(), fetchProfitData(), fetchLogisticsData(), fetchSpendData(), fetchUsageData(), fetchBreakdownData()])
+  }
+
+  async function fetchBreakdownData() {
+    const [{ data: ords }, { data: oms }, { data: mats }, { data: sd }, { data: exps }] = await Promise.all([
+      supabase.from('orders').select('id'),
+      supabase.from('order_materials').select('order_id, quantity_needed, material_id'),
+      supabase.from('materials').select('id, cost_per_unit'),
+      supabase.from('stage_data').select('order_id, stage, data'),
+      supabase.from('expenses').select('category, amount'),
+    ])
+    const orderIds = new Set(((ords ?? []) as { id: string }[]).map(o => o.id))
+    const price: Record<string, number> = {}
+    ;((mats ?? []) as { id: string; cost_per_unit: number | null }[]).forEach(m => { price[m.id] = m.cost_per_unit ?? 0 })
+    let materials = 0
+    ;((oms ?? []) as { order_id: string; quantity_needed: number | null; material_id: string }[]).forEach(om => {
+      if (orderIds.has(om.order_id)) materials += (om.quantity_needed ?? 0) * (price[om.material_id] ?? 0)
+    })
+    const num = (v: unknown) => (typeof v === 'number' ? v : 0)
+    let fabric = 0, cutting = 0, printing = 0, finishing = 0, logistics = 0
+    ;((sd ?? []) as { order_id: string; stage: string; data: Record<string, unknown> | null }[]).forEach(r => {
+      if (!orderIds.has(r.order_id)) return
+      const d = r.data ?? {}
+      if (r.stage === 'preparation') fabric += num(d['fabric_total_cost'])
+      if (r.stage === 'cutting') cutting += num(d['total_cutting_cost'])
+      if (r.stage === 'printing') printing += num(d['total_printing_cost'])
+      if (r.stage === 'finishing') finishing += num(d['grand_total_finishing_cost'])
+      logistics += num(d['logistic_cost'])
+    })
+    setProdBreakdown(([
+      { key: 'materials', amount: materials },
+      { key: 'fabric', amount: fabric },
+      { key: 'cutting', amount: cutting },
+      { key: 'printing', amount: printing },
+      { key: 'finishing', amount: finishing },
+      { key: 'logistics', amount: logistics },
+    ] as BreakdownRow[]).filter(r => r.amount > 0).sort((a, b) => b.amount - a.amount))
+    const byCat: Record<string, number> = {}
+    ;((exps ?? []) as { category: string; amount: number | null }[]).forEach(e => {
+      const cat = e.category ?? 'other'
+      byCat[cat] = (byCat[cat] ?? 0) + (e.amount ?? 0)
+    })
+    setExpBreakdown(Object.entries(byCat).map(([key, amount]) => ({ key, amount })).filter(r => r.amount > 0).sort((a, b) => b.amount - a.amount))
   }
 
   async function fetchSpendData() {
@@ -376,6 +421,7 @@ export default function ReportsPage() {
     { key: 'logistics', label: tr.logisticsReport },
     { key: 'spend', label: tr.vendorMfrSpend },
     { key: 'usage', label: tr.materialUsageOverTime },
+    { key: 'breakdown', label: tr.costBreakdown },
   ]
 
   const totalPLRevenue = monthPL.reduce((s, m) => s + m.revenue, 0)
@@ -843,6 +889,63 @@ export default function ReportsPage() {
                   <td className="px-5 py-3 text-right tabular-nums">EGP {money(totVal)}</td>
                 </tr></tfoot>
               </table></div>
+            </div>
+          )
+        })()}
+
+        {tab === 'breakdown' && (() => {
+          const money = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          const label = (k: string) => (tr as unknown as Record<string, string>)[k] ?? k
+          const prodTotal = prodBreakdown.reduce((s, r) => s + r.amount, 0)
+          const expTotal = expBreakdown.reduce((s, r) => s + r.amount, 0)
+          return (
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <h2 className="font-semibold text-[#0f1b35]">{tr.byStage}</h2>
+                  <span className="text-sm text-gray-500 tabular-nums">EGP {money(prodTotal)}</span>
+                </div>
+                <div className="p-5 space-y-3">
+                  {prodBreakdown.map((r, i) => {
+                    const pct = prodTotal > 0 ? (r.amount / prodTotal) * 100 : 0
+                    return (
+                      <div key={i}>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-[#0f1b35] font-medium">{label(r.key)}</span>
+                          <span className="text-gray-600 tabular-nums">{money(r.amount)} · {pct.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="h-full bg-[#c9a84c] rounded-full" style={{ width: pct + '%' }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {prodBreakdown.length === 0 && <p className="text-center text-gray-400 py-4">-</p>}
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <h2 className="font-semibold text-[#0f1b35]">{tr.byCategory}</h2>
+                  <span className="text-sm text-gray-500 tabular-nums">EGP {money(expTotal)}</span>
+                </div>
+                <div className="p-5 space-y-3">
+                  {expBreakdown.map((r, i) => {
+                    const pct = expTotal > 0 ? (r.amount / expTotal) * 100 : 0
+                    return (
+                      <div key={i}>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-[#0f1b35] font-medium capitalize">{label(r.key)}</span>
+                          <span className="text-gray-600 tabular-nums">{money(r.amount)} · {pct.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="h-full bg-[#0f1b35] rounded-full" style={{ width: pct + '%' }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {expBreakdown.length === 0 && <p className="text-center text-gray-400 py-4">-</p>}
+                </div>
+              </div>
             </div>
           )
         })()}
