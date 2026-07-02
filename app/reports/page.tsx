@@ -484,6 +484,37 @@ export default function ReportsPage() {
               </div>
             </div>
 
+            {monthPL.length > 0 && (() => {
+              const maxV = Math.max(...monthPL.flatMap(x => [x.revenue, x.expenses]), 1)
+              return (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-semibold text-[#0f1b35]">{tr.revenue} · {tr.expenses} · {tr.netProfit}</h2>
+                    <div className="flex gap-4 text-xs text-gray-500">
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-500 inline-block" />{tr.revenue}</span>
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" />{tr.expenses}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-3 h-48 overflow-x-auto pb-1">
+                    {monthPL.map((m, i) => {
+                      const rh = (m.revenue / maxV) * 100
+                      const eh = (m.expenses / maxV) * 100
+                      return (
+                        <div key={i} className="flex flex-col items-center gap-1 flex-1 min-w-[52px] h-full justify-end">
+                          <div className="flex items-end gap-1 h-full w-full justify-center">
+                            <div className="w-4 bg-green-500 rounded-t transition-all" style={{ height: rh + '%' }} title={tr.revenue + ': ' + m.revenue.toFixed(0)} />
+                            <div className="w-4 bg-red-400 rounded-t transition-all" style={{ height: eh + '%' }} title={tr.expenses + ': ' + m.expenses.toFixed(0)} />
+                          </div>
+                          <span className={`text-xs font-semibold tabular-nums ${m.net >= 0 ? 'text-blue-600' : 'text-red-500'}`}>{m.net >= 0 ? '+' : ''}{Math.round(m.net / 1000)}k</span>
+                          <span className="text-xs text-gray-400 whitespace-nowrap">{m.yearMonth.slice(5)}/{m.yearMonth.slice(2, 4)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="font-semibold text-[#0f1b35]">{tr.pnlReport}</h2>
