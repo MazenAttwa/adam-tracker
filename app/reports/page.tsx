@@ -73,6 +73,8 @@ export default function ReportsPage() {
   const [expBreakdown, setExpBreakdown] = useState<BreakdownRow[]>([])
   const [orderDateFrom, setOrderDateFrom] = useState('')
   const [orderDateTo, setOrderDateTo] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   // Materials data
   const [materialUsage, setMaterialUsage] = useState<MaterialUsage[]>([])
@@ -86,8 +88,27 @@ export default function ReportsPage() {
     if (loading) return
     if (!profile) { router.push('/login'); return }
     if (profile.role !== 'manager') { router.push('/dashboard'); return }
+    setFetching(true)
     fetchAll().finally(() => setFetching(false))
-  }, [profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile, loading, dateFrom, dateTo]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function inRange(dateStr: string | null | undefined): boolean {
+    if (!dateStr) return true
+    const d = dateStr.slice(0, 10)
+    if (dateFrom && d < dateFrom) return false
+    if (dateTo && d > dateTo) return false
+    return true
+  }
+
+  function applyPreset(k: string) {
+    const now = new Date()
+    const y = now.getFullYear(), mo = now.getMonth()
+    const fmt = (dt: Date) => dt.toISOString().slice(0, 10)
+    if (k === 'all') { setDateFrom(''); setDateTo('') }
+    else if (k === 'month') { setDateFrom(fmt(new Date(y, mo, 1))); setDateTo(fmt(new Date(y, mo + 1, 0))) }
+    else if (k === 'quarter') { const q = Math.floor(mo / 3); setDateFrom(fmt(new Date(y, q * 3, 1))); setDateTo(fmt(new Date(y, q * 3 + 3, 0))) }
+    else if (k === 'year') { setDateFrom(fmt(new Date(y, 0, 1))); setDateTo(fmt(new Date(y, 11, 31))) }
+  }
 
   async function fetchAll() {
     await Promise.all([fetchPLData(), fetchOrdersData(), fetchMaterialsData(), fetchRetailersData(), fetchProfitData(), fetchLogisticsData(), fetchSpendData(), fetchUsageData(), fetchBreakdownData()])
@@ -95,13 +116,13 @@ export default function ReportsPage() {
 
   async function fetchBreakdownData() {
     const [{ data: ords }, { data: oms }, { data: mats }, { data: sd }, { data: exps }] = await Promise.all([
-      supabase.from('orders').select('id'),
+      supabase.from('orders').select('id, created_at'),
       supabase.from('order_materials').select('order_id, quantity_needed, material_id'),
       supabase.from('materials').select('id, cost_per_unit'),
       supabase.from('stage_data').select('order_id, stage, data'),
       supabase.from('expenses').select('category, amount'),
     ])
-    const orderIds = new Set(((ords ?? []) as { id: string }[]).map(o => o.id))
+    const orderIds = new Set(((ords ?? []) as { id: string; created_at: string }[]).filter(o => inRange(o.created_at)).map(o => o.id))
     const price: Record<string, number> = {}
     ;((mats ?? []) as { id: string; cost_per_unit: number | null }[]).forEach(m => { price[m.id] = m.cost_per_unit ?? 0 })
     let materials = 0
@@ -138,20 +159,21 @@ export default function ReportsPage() {
   async function fetchSpendData() {
     const [{ data: vends }, { data: vtx }, { data: sd }] = await Promise.all([
       supabase.from('vendors').select('id, name, balance'),
-      supabase.from('vendor_transactions').select('vendor_id, type, amount'),
-      supabase.from('stage_data').select('stage, data'),
+      supabase.from('vendor_transactions').select('vendor_id, type, amount, created_at'),
+      supabase.from('stage_data').select('stage, data, updated_at'),
     ])
     const vName: Record<string, string> = {}
     const vBal: Record<string, number> = {}
     ;((vends ?? []) as { id: string; name: string; balance: number | null }[]).forEach(v => { vName[v.id] = v.name; vBal[v.id] = v.balance ?? 0 })
     const vSpend: Record<string, number> = {}
-    ;((vtx ?? []) as { vendor_id: string | null; type: string; amount: number | null }[]).forEach(tx => {
-      if (tx.type === 'purchase' && tx.vendor_id) vSpend[tx.vendor_id] = (vSpend[tx.vendor_id] ?? 0) + (tx.amount ?? 0)
+    ;((vtx ?? []) as { vendor_id: string | null; type: string; amount: number | null; created_at: string }[]).forEach(tx => {
+      if (tx.type === 'purchase' && tx.vendor_id && inRange(tx.created_at)) vSpend[tx.vendor_id] = (vSpend[tx.vendor_id] ?? 0) + (tx.amount ?? 0)
     })
     const vRows: VendorSpendRow[] = Object.keys(vName).map(vid => ({ name: vName[vid], spend: vSpend[vid] ?? 0, balance: vBal[vid] ?? 0 })).filter(r => r.spend > 0 || r.balance !== 0).sort((a, b) => b.spend - a.spend)
     setVendorSpendRows(vRows)
     const mfr: Record<string, number> = {}
-    ;((sd ?? []) as { stage: string; data: Record<string, unknown> | null }[]).forEach(r => {
+    ;((sd ?? []) as { stage: string; data: Record<string, unknown> | null; updated_at: string | null }[]).forEach(r => {
+      if (!inRange(r.updated_at)) return
       const d = r.data ?? {}
       const name = typeof d['manufacturer_name'] === 'string' ? d['manufacturer_name'] as string : ''
       if (r.stage === 'cutting' && name && typeof d['total_cutting_cost'] === 'number') mfr[name] = (mfr[name] ?? 0) + (d['total_cutting_cost'] as number)
@@ -175,7 +197,7 @@ export default function ReportsPage() {
     ;((mats ?? []) as { id: string; cost_per_unit: number | null }[]).forEach(m => { price[m.id] = m.cost_per_unit ?? 0 })
     const byMonth: Record<string, { qty: number; value: number }> = {}
     ;((mv ?? []) as { material_id: string; type: string; quantity: number | null; created_at: string }[]).forEach(m => {
-      if (m.type !== 'out') return
+      if (m.type !== 'out' || !inRange(m.created_at)) return
       const month = (m.created_at ?? '').slice(0, 7)
       if (!month) return
       if (!byMonth[month]) byMonth[month] = { qty: 0, value: 0 }
@@ -198,6 +220,7 @@ export default function ReportsPage() {
     const byOrder: Record<string, number> = {}
     const byOrderDate: Record<string, string> = {}
     ;((sd ?? []) as { order_id: string; data: Record<string, unknown> | null; updated_at: string | null }[]).forEach(r => {
+      if (!inRange(r.updated_at)) return
       const v = r.data?.['logistic_cost']
       if (typeof v === 'number' && v > 0) {
         byOrder[r.order_id] = (byOrder[r.order_id] ?? 0) + v
@@ -211,7 +234,7 @@ export default function ReportsPage() {
     const matName: Record<string, string> = {}
     ;((mats ?? []) as { id: string; name: string }[]).forEach(m => { matName[m.id] = m.name })
     const matRows: LogisticsRow[] = ((sm ?? []) as { material_id: string; logistic_cost: number | null; purchase_date: string | null; created_at: string }[])
-      .filter(m => (m.logistic_cost ?? 0) > 0)
+      .filter(m => (m.logistic_cost ?? 0) > 0 && inRange(m.purchase_date ?? m.created_at))
       .map(m => ({ kind: 'material' as const, ref: matName[m.material_id] ?? m.material_id, date: m.purchase_date ?? (m.created_at ? m.created_at.slice(0, 10) : ''), amount: m.logistic_cost ?? 0 }))
     const rows = [...orderRows, ...matRows].sort((a, b) => b.amount - a.amount)
     setLogisticsRows(rows)
@@ -219,7 +242,7 @@ export default function ReportsPage() {
 
   async function fetchProfitData() {
     const [{ data: ords }, { data: sd }, { data: oms }, { data: mats }] = await Promise.all([
-      supabase.from('orders').select('id, order_number, customer_name').limit(1000),
+      supabase.from('orders').select('id, order_number, customer_name, created_at').limit(1000),
       supabase.from('stage_data').select('order_id, stage, data'),
       supabase.from('order_materials').select('order_id, quantity_needed, material_id'),
       supabase.from('materials').select('id, cost_per_unit'),
@@ -236,7 +259,7 @@ export default function ReportsPage() {
       byOrder[r.order_id][r.stage] = r.data ?? {}
     })
     const num = (v: unknown) => (typeof v === 'number' ? v : 0)
-    const rows: ProfitRow[] = ((ords ?? []) as { id: string; order_number: string; customer_name: string }[]).map(o => {
+    const rows: ProfitRow[] = ((ords ?? []) as { id: string; order_number: string; customer_name: string; created_at: string }[]).filter(o => inRange(o.created_at)).map(o => {
       const sm = byOrder[o.id] ?? {}
       const fabric = num(sm['preparation']?.['fabric_total_cost'])
       const cutting = num(sm['cutting']?.['total_cutting_cost'])
@@ -260,8 +283,8 @@ export default function ReportsPage() {
       supabase.from('month_closes').select('*').order('year_month', { ascending: false }),
     ])
 
-    const revenues = (revData ?? []) as { date: string; amount: number }[]
-    const expenses = (expData ?? []) as { date: string; amount: number }[]
+    const revenues = ((revData ?? []) as { date: string; amount: number }[]).filter(r => inRange(r.date))
+    const expenses = ((expData ?? []) as { date: string; amount: number }[]).filter(e => inRange(e.date))
     const closes = (closesData ?? []) as MonthClose[]
 
     const monthSet = new Set<string>()
@@ -447,6 +470,22 @@ export default function ReportsPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-[#0f1b35]">{tr.reports}</h1>
           <p className="text-gray-500 text-sm mt-1">{tr.appName} · {tr.appTagline}</p>
+        </div>
+
+        {/* Global date-range filter */}
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <span className="text-sm font-medium text-gray-600">{tr.period}:</span>
+          <div className="flex gap-1 flex-wrap">
+            <button onClick={() => applyPreset('month')} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-[#c9a84c] hover:text-[#c9a84c] transition-colors">{tr.thisMonth}</button>
+            <button onClick={() => applyPreset('quarter')} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-[#c9a84c] hover:text-[#c9a84c] transition-colors">{tr.thisQuarter}</button>
+            <button onClick={() => applyPreset('year')} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-[#c9a84c] hover:text-[#c9a84c] transition-colors">{tr.thisYear}</button>
+            <button onClick={() => applyPreset('all')} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-[#c9a84c] hover:text-[#c9a84c] transition-colors">{tr.allTime}</button>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700" />
+            <span className="text-gray-400">-</span>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700" />
+          </div>
         </div>
 
         {/* Tabs */}

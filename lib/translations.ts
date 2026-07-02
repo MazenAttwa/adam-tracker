@@ -402,6 +402,9 @@ export const t = {
     // Financial dashboard
     netProfit: 'Net Profit',
     thisMonth: 'This Month',
+    thisQuarter: 'This Quarter',
+    thisYear: 'This Year',
+    period: 'Period',
     allTime: 'All Time (since start)',
     financialSummary: 'This Month',
     revenueVsExpenses: 'Revenue vs Expenses',
@@ -918,6 +921,9 @@ export const t = {
 
     netProfit: 'صافي الربح',
     thisMonth: 'هذا الشهر',
+    thisQuarter: 'هذا الربع',
+    thisYear: 'هذا العام',
+    period: 'الفترة',
     allTime: 'الإجمالي منذ البداية',
     financialSummary: 'هذا الشهر',
     revenueVsExpenses: 'الإيرادات مقابل المصروفات',
