@@ -587,25 +587,69 @@ export default function ReportsPage() {
 
         {/* Materials Usage Report */}
         {tab === 'profit' && (() => {
+          const money = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
           const totRev = profitRows.reduce((s, r) => s + r.revenue, 0)
           const totCost = profitRows.reduce((s, r) => s + r.cost, 0)
           const totProfit = totRev - totCost
+          const completed = profitRows.filter(r => r.revenue > 0)
+          const n = completed.length
+          const avgRev = n ? completed.reduce((s, r) => s + r.revenue, 0) / n : 0
+          const avgProfit = n ? completed.reduce((s, r) => s + r.profit, 0) / n : 0
+          const totMargin = totRev > 0 ? (totProfit / totRev) * 100 : 0
+          const best = n ? completed.reduce((a, b) => (b.profit > a.profit ? b : a)) : null
+          const worst = n ? completed.reduce((a, b) => (b.profit < a.profit ? b : a)) : null
           return (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-green-50 rounded-xl p-5 border border-green-100">
                   <p className="text-sm text-gray-500">{tr.totalRevenue}</p>
-                  <p className="text-2xl font-bold text-green-700 tabular-nums mt-1">{totRev.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-green-700 tabular-nums mt-1">{money(totRev)}</p>
                 </div>
                 <div className="bg-red-50 rounded-xl p-5 border border-red-100">
                   <p className="text-sm text-gray-500">{tr.cost}</p>
-                  <p className="text-2xl font-bold text-red-700 tabular-nums mt-1">{totCost.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-red-700 tabular-nums mt-1">{money(totCost)}</p>
                 </div>
                 <div className={`${totProfit >= 0 ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'} rounded-xl p-5 border`}>
-                  <p className="text-sm text-gray-500">{tr.profit}</p>
-                  <p className={`text-2xl font-bold tabular-nums mt-1 ${totProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>{totProfit.toFixed(2)}</p>
+                  <p className="text-sm text-gray-500">{tr.profit} ({totMargin.toFixed(1)}%)</p>
+                  <p className={`text-2xl font-bold tabular-nums mt-1 ${totProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>{money(totProfit)}</p>
                 </div>
               </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                  <p className="text-xs text-gray-500">{tr.avgOrderValue}</p>
+                  <p className="text-lg font-bold text-[#0f1b35] tabular-nums mt-1">{money(avgRev)}</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                  <p className="text-xs text-gray-500">{tr.avgProfit}</p>
+                  <p className="text-lg font-bold text-[#0f1b35] tabular-nums mt-1">{money(avgProfit)}</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                  <p className="text-xs text-gray-500">{tr.avgMargin}</p>
+                  <p className="text-lg font-bold text-[#0f1b35] tabular-nums mt-1">{totMargin.toFixed(1)}%</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                  <p className="text-xs text-gray-500">{tr.completedOrders}</p>
+                  <p className="text-lg font-bold text-[#0f1b35] tabular-nums mt-1">{n}</p>
+                </div>
+              </div>
+              {(best || worst) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {best && (
+                    <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                      <p className="text-xs text-gray-500">{tr.bestOrder}</p>
+                      <p className="text-sm font-semibold text-[#0f1b35] mt-1">{best.order_number} — {best.customer_name}</p>
+                      <p className="text-lg font-bold text-blue-700 tabular-nums">+{money(best.profit)}</p>
+                    </div>
+                  )}
+                  {worst && (
+                    <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+                      <p className="text-xs text-gray-500">{tr.worstOrder}</p>
+                      <p className="text-sm font-semibold text-[#0f1b35] mt-1">{worst.order_number} — {worst.customer_name}</p>
+                      <p className={`text-lg font-bold tabular-nums ${worst.profit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{worst.profit >= 0 ? '+' : ''}{money(worst.profit)}</p>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100">
                   <h2 className="font-semibold text-[#0f1b35]">{tr.profitPerOrder}</h2>
@@ -619,6 +663,7 @@ export default function ReportsPage() {
                         <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.revenue}</th>
                         <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.cost}</th>
                         <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.profit}</th>
+                        <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.margin}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -626,21 +671,23 @@ export default function ReportsPage() {
                         <tr key={r.id} className="border-b border-gray-50">
                           <td className="px-5 py-3 font-medium text-[#0f1b35] whitespace-nowrap">{r.order_number}</td>
                           <td className="px-5 py-3 text-gray-600">{r.customer_name}</td>
-                          <td className="px-5 py-3 text-right tabular-nums text-green-700">{r.revenue.toFixed(2)}</td>
-                          <td className="px-5 py-3 text-right tabular-nums text-gray-700">{r.cost.toFixed(2)}</td>
-                          <td className={`px-5 py-3 text-right tabular-nums font-semibold ${r.profit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{r.profit.toFixed(2)}</td>
+                          <td className="px-5 py-3 text-right tabular-nums text-green-700">{money(r.revenue)}</td>
+                          <td className="px-5 py-3 text-right tabular-nums text-gray-700">{money(r.cost)}</td>
+                          <td className={`px-5 py-3 text-right tabular-nums font-semibold ${r.profit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{money(r.profit)}</td>
+                          <td className="px-5 py-3 text-right tabular-nums text-gray-500">{r.revenue > 0 ? ((r.profit / r.revenue) * 100).toFixed(1) + '%' : '-'}</td>
                         </tr>
                       ))}
                       {profitRows.length === 0 && (
-                        <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">—</td></tr>
+                        <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400">-</td></tr>
                       )}
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-gray-200 font-bold">
                         <td className="px-5 py-3" colSpan={2}>{tr.grandTotal}</td>
-                        <td className="px-5 py-3 text-right tabular-nums text-green-700">{totRev.toFixed(2)}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">{totCost.toFixed(2)}</td>
-                        <td className={`px-5 py-3 text-right tabular-nums ${totProfit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{totProfit.toFixed(2)}</td>
+                        <td className="px-5 py-3 text-right tabular-nums text-green-700">{money(totRev)}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{money(totCost)}</td>
+                        <td className={`px-5 py-3 text-right tabular-nums ${totProfit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{money(totProfit)}</td>
+                        <td className="px-5 py-3 text-right tabular-nums text-gray-600">{totMargin.toFixed(1)}%</td>
                       </tr>
                     </tfoot>
                   </table>
