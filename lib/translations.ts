@@ -242,6 +242,13 @@ export const t = {
 
     // Vendors module
     vendors: 'Vendors',
+    vendorMfrSpend: 'Vendor & Manufacturer Spend',
+    materialUsageOverTime: 'Material Usage Over Time',
+    vendorSpend: 'Vendor Spend',
+    manufacturerSpend: 'Manufacturer Spend',
+    quantityUsed: 'Quantity Used',
+    value: 'Value',
+    totalSpend: 'Total Spend',
     addVendor: 'Add Vendor',
     editVendor: 'Edit Vendor',
     vendorName: 'Vendor Name',
@@ -752,6 +759,13 @@ export const t = {
     lineCost: 'التكلفة',
 
     vendors: 'الموردون',
+    vendorMfrSpend: 'إنفاق الموردين والمصنّعين',
+    materialUsageOverTime: 'استخدام المواد عبر الزمن',
+    vendorSpend: 'إنفاق الموردين',
+    manufacturerSpend: 'إنفاق المصنّعين',
+    quantityUsed: 'الكمية المستخدمة',
+    value: 'القيمة',
+    totalSpend: 'إجمالي الإنفاق',
     addVendor: 'إضافة مورّد',
     editVendor: 'تعديل المورّد',
     vendorName: 'اسم المورّد',

@@ -25,6 +25,10 @@ interface MaterialUsage {
   net: number
 }
 
+interface VendorSpendRow { name: string; spend: number; balance: number }
+interface MfrSpendRow { name: string; spend: number }
+interface UsageRow { month: string; qty: number; value: number }
+
 interface LogisticsRow {
   kind: 'order' | 'material'
   ref: string
@@ -41,7 +45,7 @@ interface ProfitRow {
   profit: number
 }
 
-type ReportTab = 'pnl' | 'orders' | 'materials' | 'retailers' | 'profit' | 'logistics'
+type ReportTab = 'pnl' | 'orders' | 'materials' | 'retailers' | 'profit' | 'logistics' | 'spend' | 'usage'
 
 const STAGES: Stage[] = ['draft', 'preparation', 'cutting', 'printing', 'finishing', 'submitted']
 
@@ -61,6 +65,9 @@ export default function ReportsPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [profitRows, setProfitRows] = useState<ProfitRow[]>([])
   const [logisticsRows, setLogisticsRows] = useState<LogisticsRow[]>([])
+  const [vendorSpendRows, setVendorSpendRows] = useState<VendorSpendRow[]>([])
+  const [mfrSpendRows, setMfrSpendRows] = useState<MfrSpendRow[]>([])
+  const [usageRows, setUsageRows] = useState<UsageRow[]>([])
   const [orderDateFrom, setOrderDateFrom] = useState('')
   const [orderDateTo, setOrderDateTo] = useState('')
 
@@ -80,7 +87,58 @@ export default function ReportsPage() {
   }, [profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchAll() {
-    await Promise.all([fetchPLData(), fetchOrdersData(), fetchMaterialsData(), fetchRetailersData(), fetchProfitData(), fetchLogisticsData()])
+    await Promise.all([fetchPLData(), fetchOrdersData(), fetchMaterialsData(), fetchRetailersData(), fetchProfitData(), fetchLogisticsData(), fetchSpendData(), fetchUsageData()])
+  }
+
+  async function fetchSpendData() {
+    const [{ data: vends }, { data: vtx }, { data: sd }] = await Promise.all([
+      supabase.from('vendors').select('id, name, balance'),
+      supabase.from('vendor_transactions').select('vendor_id, type, amount'),
+      supabase.from('stage_data').select('stage, data'),
+    ])
+    const vName: Record<string, string> = {}
+    const vBal: Record<string, number> = {}
+    ;((vends ?? []) as { id: string; name: string; balance: number | null }[]).forEach(v => { vName[v.id] = v.name; vBal[v.id] = v.balance ?? 0 })
+    const vSpend: Record<string, number> = {}
+    ;((vtx ?? []) as { vendor_id: string | null; type: string; amount: number | null }[]).forEach(tx => {
+      if (tx.type === 'purchase' && tx.vendor_id) vSpend[tx.vendor_id] = (vSpend[tx.vendor_id] ?? 0) + (tx.amount ?? 0)
+    })
+    const vRows: VendorSpendRow[] = Object.keys(vName).map(vid => ({ name: vName[vid], spend: vSpend[vid] ?? 0, balance: vBal[vid] ?? 0 })).filter(r => r.spend > 0 || r.balance !== 0).sort((a, b) => b.spend - a.spend)
+    setVendorSpendRows(vRows)
+    const mfr: Record<string, number> = {}
+    ;((sd ?? []) as { stage: string; data: Record<string, unknown> | null }[]).forEach(r => {
+      const d = r.data ?? {}
+      const name = typeof d['manufacturer_name'] === 'string' ? d['manufacturer_name'] as string : ''
+      if (r.stage === 'cutting' && name && typeof d['total_cutting_cost'] === 'number') mfr[name] = (mfr[name] ?? 0) + (d['total_cutting_cost'] as number)
+      if (r.stage === 'printing' && name && typeof d['total_printing_cost'] === 'number') mfr[name] = (mfr[name] ?? 0) + (d['total_printing_cost'] as number)
+      if (r.stage === 'finishing' && Array.isArray(d['manufacturers'])) {
+        (d['manufacturers'] as { manufacturer_name?: string; subtotal?: number }[]).forEach(m => {
+          if (m.manufacturer_name) mfr[m.manufacturer_name] = (mfr[m.manufacturer_name] ?? 0) + (m.subtotal ?? 0)
+        })
+      }
+    })
+    const mRows: MfrSpendRow[] = Object.entries(mfr).map(([name, spend]) => ({ name, spend })).filter(r => r.spend > 0).sort((a, b) => b.spend - a.spend)
+    setMfrSpendRows(mRows)
+  }
+
+  async function fetchUsageData() {
+    const [{ data: mv }, { data: mats }] = await Promise.all([
+      supabase.from('stock_movements').select('material_id, type, quantity, created_at'),
+      supabase.from('materials').select('id, cost_per_unit'),
+    ])
+    const price: Record<string, number> = {}
+    ;((mats ?? []) as { id: string; cost_per_unit: number | null }[]).forEach(m => { price[m.id] = m.cost_per_unit ?? 0 })
+    const byMonth: Record<string, { qty: number; value: number }> = {}
+    ;((mv ?? []) as { material_id: string; type: string; quantity: number | null; created_at: string }[]).forEach(m => {
+      if (m.type !== 'out') return
+      const month = (m.created_at ?? '').slice(0, 7)
+      if (!month) return
+      if (!byMonth[month]) byMonth[month] = { qty: 0, value: 0 }
+      byMonth[month].qty += m.quantity ?? 0
+      byMonth[month].value += (m.quantity ?? 0) * (price[m.material_id] ?? 0)
+    })
+    const rows: UsageRow[] = Object.entries(byMonth).map(([month, v]) => ({ month, qty: v.qty, value: v.value })).sort((a, b) => a.month.localeCompare(b.month))
+    setUsageRows(rows)
   }
 
   async function fetchLogisticsData() {
@@ -316,6 +374,8 @@ export default function ReportsPage() {
     { key: 'retailers', label: tr.retailerStatements },
     { key: 'profit', label: tr.profitPerOrder },
     { key: 'logistics', label: tr.logisticsReport },
+    { key: 'spend', label: tr.vendorMfrSpend },
+    { key: 'usage', label: tr.materialUsageOverTime },
   ]
 
   const totalPLRevenue = monthPL.reduce((s, m) => s + m.revenue, 0)
@@ -644,6 +704,98 @@ export default function ReportsPage() {
                   </table>
                 </div>
               </div>
+            </div>
+          )
+        })()}
+
+        {tab === 'spend' && (() => {
+          const vendorTotal = vendorSpendRows.reduce((s, r) => s + r.spend, 0)
+          const mfrTotal = mfrSpendRows.reduce((s, r) => s + r.spend, 0)
+          const money = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          return (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+                  <p className="text-sm text-gray-500">{tr.vendorSpend}</p>
+                  <p className="text-2xl font-bold text-[#0f1b35] tabular-nums mt-1">EGP {money(vendorTotal)}</p>
+                </div>
+                <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+                  <p className="text-sm text-gray-500">{tr.manufacturerSpend}</p>
+                  <p className="text-2xl font-bold text-[#0f1b35] tabular-nums mt-1">EGP {money(mfrTotal)}</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100"><h2 className="font-semibold text-[#0f1b35]">{tr.vendorSpend}</h2></div>
+                <div className="overflow-x-auto"><table className="w-full text-sm">
+                  <thead><tr className="border-b border-gray-100 text-left">
+                    <th className="px-5 py-3 font-medium text-gray-600">{tr.vendors}</th>
+                    <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.totalSpend}</th>
+                    <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.balance}</th>
+                  </tr></thead>
+                  <tbody>
+                    {vendorSpendRows.map((r, i) => (
+                      <tr key={i} className="border-b border-gray-50">
+                        <td className="px-5 py-3 font-medium text-[#0f1b35]">{r.name}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{money(r.spend)}</td>
+                        <td className="px-5 py-3 text-right tabular-nums text-gray-500">{money(r.balance)}</td>
+                      </tr>
+                    ))}
+                    {vendorSpendRows.length === 0 && (<tr><td colSpan={3} className="px-5 py-6 text-center text-gray-400">-</td></tr>)}
+                  </tbody>
+                </table></div>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100"><h2 className="font-semibold text-[#0f1b35]">{tr.manufacturerSpend}</h2></div>
+                <div className="overflow-x-auto"><table className="w-full text-sm">
+                  <thead><tr className="border-b border-gray-100 text-left">
+                    <th className="px-5 py-3 font-medium text-gray-600">{tr.manufacturers}</th>
+                    <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.totalSpend}</th>
+                  </tr></thead>
+                  <tbody>
+                    {mfrSpendRows.map((r, i) => (
+                      <tr key={i} className="border-b border-gray-50">
+                        <td className="px-5 py-3 font-medium text-[#0f1b35]">{r.name}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{money(r.spend)}</td>
+                      </tr>
+                    ))}
+                    {mfrSpendRows.length === 0 && (<tr><td colSpan={2} className="px-5 py-6 text-center text-gray-400">-</td></tr>)}
+                  </tbody>
+                </table></div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {tab === 'usage' && (() => {
+          const totQty = usageRows.reduce((s, r) => s + r.qty, 0)
+          const totVal = usageRows.reduce((s, r) => s + r.value, 0)
+          const money = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          const qtyFmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+          return (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100"><h2 className="font-semibold text-[#0f1b35]">{tr.materialUsageOverTime}</h2></div>
+              <div className="overflow-x-auto"><table className="w-full text-sm">
+                <thead><tr className="border-b border-gray-100 text-left">
+                  <th className="px-5 py-3 font-medium text-gray-600">{tr.month}</th>
+                  <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.quantityUsed}</th>
+                  <th className="px-5 py-3 font-medium text-gray-600 text-right">{tr.value}</th>
+                </tr></thead>
+                <tbody>
+                  {usageRows.map((r, i) => (
+                    <tr key={i} className="border-b border-gray-50">
+                      <td className="px-5 py-3 font-medium text-[#0f1b35]">{r.month}</td>
+                      <td className="px-5 py-3 text-right tabular-nums">{qtyFmt(r.qty)}</td>
+                      <td className="px-5 py-3 text-right tabular-nums text-gray-600">EGP {money(r.value)}</td>
+                    </tr>
+                  ))}
+                  {usageRows.length === 0 && (<tr><td colSpan={3} className="px-5 py-6 text-center text-gray-400">-</td></tr>)}
+                </tbody>
+                <tfoot><tr className="border-t-2 border-gray-200 font-bold">
+                  <td className="px-5 py-3">{tr.grandTotal}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">{qtyFmt(totQty)}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">EGP {money(totVal)}</td>
+                </tr></tfoot>
+              </table></div>
             </div>
           )
         })()}
