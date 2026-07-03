@@ -465,6 +465,10 @@ export const t = {
     // Reports module
     reports: 'Reports',
     backup: 'Backup',
+    auditLog: 'Audit Log',
+    details: 'Details',
+    user: 'User',
+    action: 'Action',
     backupDesc: 'Download a complete copy of all your data (orders, materials, finance, sales and more) as a single file. Save it somewhere safe (your computer or Google Drive). Do this weekly.',
     exportBackup: 'Export Backup (JSON)',
     backupNote: 'This backs up your data records. Photos are stored separately. Keep the downloaded file private \u2014 it contains all business data.',
@@ -980,6 +984,10 @@ export const t = {
 
     reports: 'التقارير',
     backup: 'نسخة احتياطية',
+    auditLog: 'سجل التغييرات',
+    details: 'التفاصيل',
+    user: 'المستخدم',
+    action: 'الإجراء',
     backupDesc: 'حمّل نسخة كاملة من كل بياناتك (الطلبات، المواد، المالية، المبيعات وغيرها) في ملف واحد. احفظه في مكان آمن (جهازك أو Google Drive). كرّر ذلك أسبوعياً.',
     exportBackup: 'تصدير نسخة احتياطية (JSON)',
     backupNote: 'هذه نسخة من سجلات البيانات. الصور محفوظة بشكل منفصل. احتفظ بالملف في مكان خاص \u2014 فهو يحتوي كل بيانات العمل.',

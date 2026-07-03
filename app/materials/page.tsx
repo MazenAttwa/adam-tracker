@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
+import { logAudit } from '@/lib/audit'
 import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/Button'
@@ -275,6 +276,7 @@ export default function MaterialsPage() {
     const mPaths = ((mPhotos ?? []) as { file_path: string }[]).map(p => p.file_path).filter(Boolean)
     const rPaths = ((mMoves ?? []) as { receipt_path: string | null }[]).map(m => m.receipt_path).filter((x): x is string => !!x)
     if (mPaths.length || rPaths.length) await supabase.storage.from('material-photos').remove([...mPaths, ...rPaths])
+    logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'material', deleteTarget.name, 'Deleted material ' + deleteTarget.name)
     showToast(tr.savedOk)
     fetchMaterials()
   }

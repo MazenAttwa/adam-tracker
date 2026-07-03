@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
+import { logAudit } from '@/lib/audit'
 import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { StageProgress } from '@/components/orders/StageProgress'
@@ -330,6 +331,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     setShowAdvance(false)
     await fetchOrder()
     showToast(tr.savedOk)
+    logAudit({ id: profile?.id, email: profile?.email }, 'advance', 'order', order.order_number, `Advanced ${order.order_number} to ${next}`)
   }
 
   async function handleDuplicate() {
@@ -394,6 +396,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     }
 
     setDuplicating(false)
+    logAudit({ id: profile?.id, email: profile?.email }, 'duplicate', 'order', order.order_number, `Duplicated ${order.order_number} into a new draft`)
     router.push(`/orders/${newId}`)
   }
 
@@ -422,6 +425,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     setShowEdit(false)
     showToast(tr.savedOk)
     await fetchOrder()
+    logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'order', editForm.order_number, `Edited order details for ${editForm.order_number}`)
   }
 
   async function handleDelete() {
@@ -479,6 +483,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
       showToast(lang === 'ar' ? 'تعذر حذف الطلب: ' + error.message : 'Could not delete order: ' + error.message, 'error')
       return
     }
+    logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'order', order?.order_number, `Deleted order ${order?.order_number} (${order?.customer_name})`)
     router.push('/orders')
   }
 

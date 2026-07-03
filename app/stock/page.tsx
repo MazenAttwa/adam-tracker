@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
+import { logAudit } from '@/lib/audit'
 import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/Button'
@@ -135,6 +136,7 @@ export default function StockPage() {
     setAdjusting(false)
     setAdjustMaterial(null)
     showToast(tr.savedOk)
+    logAudit({ id: profile?.id, email: profile?.email }, 'adjust', 'stock', adjustMaterial.name, 'Adjusted ' + adjustMaterial.name + ' stock to ' + count)
     Promise.all([fetchMovements(), fetchMaterials(), fetchStockMap()])
   }
 

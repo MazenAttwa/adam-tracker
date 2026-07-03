@@ -33,6 +33,7 @@ export function Navbar() {
         { href: '/reports', label: tr.reports },
     { href: '/logistics', label: tr.logistics },
     { href: '/backup', label: tr.backup },
+    { href: '/audit', label: tr.auditLog },
       ]
     : [
         { href: '/dashboard', label: tr.dashboard },
