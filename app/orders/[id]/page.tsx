@@ -9,6 +9,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { StageProgress } from '@/components/orders/StageProgress'
 import { StageForm } from '@/components/orders/StageForm'
+import { PieceJourney } from '@/components/orders/PieceJourney'
 import { OrderMaterials } from '@/components/orders/OrderMaterials'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -675,6 +676,12 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
             onSaved={handleStageSaved}
           />
         </div>
+
+        {activeTab === 'received' && (
+          <div className="mt-6">
+            <PieceJourney stageDataMap={stageDataMap} />
+          </div>
+        )}
 
         {/* Cost Summary (manager only) */}
         {profile?.role === 'manager' && (

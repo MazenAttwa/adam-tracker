@@ -420,6 +420,9 @@ export function StageForm({ orderId, stage, stageData, canEdit, onSaved }: Stage
       {/* ── SUBMITTED ─────────────────────────────────────────────────────── */}
       {stage === 'submitted' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input label={tr.quantitySubmitted} type="number" disabled={!canEdit}
+            value={str('quantity_submitted')}
+            onChange={e => set('quantity_submitted', e.target.value ? Number(e.target.value) : '')} />
           <Input label={tr.deliveryDate} type="date" disabled={!canEdit}
             value={str('delivery_date')}
             onChange={e => set('delivery_date', e.target.value)} />
