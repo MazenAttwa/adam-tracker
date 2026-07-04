@@ -35,7 +35,7 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
         const { data } = supabase.storage.from('product-photos').getPublicUrl(p)
         return '<img src="' + data.publicUrl + '" />'
       }).join('')
-      photosHtml = '<div class="section"><h2>Product Photos</h2><div class="photos">' + imgs + '</div></div>'
+      photosHtml = '<div class="section photos-sec"><h2>Product Photos</h2><div class="photos">' + imgs + '</div></div>'
     }
   } catch { /* ignore */ }
 
@@ -50,7 +50,7 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     if (Array.isArray(mfrs) && mfrs.length) {
       const rows = (mfrs as { manufacturer_name?: string; quantity?: number; cost_per_unit?: number; subtotal?: number }[])
         .map(m => '<tr><td>' + esc(m.manufacturer_name ?? '') + '</td><td>' + (m.quantity ?? '') + '</td><td>' + (m.cost_per_unit ?? '') + '</td><td>' + (m.subtotal ?? 0).toFixed(2) + '</td></tr>').join('')
-      mfrHtml = '<table class="mfr"><thead><tr><th>Manufacturer</th><th>Qty</th><th>Cost/Unit</th><th>Subtotal</th></tr></thead><tbody>' + rows + '</tbody></table>'
+      mfrHtml = '<table class="mfr"><thead><tr><th>Manufacturer</th><th>Qty</th><th>C/U</th><th>Subtotal</th></tr></thead><tbody>' + rows + '</tbody></table>'
     }
     const notes = sd?.notes ? '<tr><td class="lbl">Notes</td><td>' + esc(sd.notes) + '</td></tr>' : ''
     if (!fieldRows && !mfrHtml && !notes) return ''
@@ -63,25 +63,30 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
   const phone = order.customer_phone ? ' &middot; ' + esc(order.customer_phone) : ''
 
   const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(order.order_number) + '</title><style>'
-    + 'body{font-family:Arial,Helvetica,sans-serif;color:#0f1b35;margin:0;padding:32px;}'
-    + '.head{border-bottom:3px solid #c9a84c;padding-bottom:16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start;}'
-    + '.brand{font-size:22px;font-weight:800;} .brand small{display:block;font-size:12px;color:#888;font-weight:400;}'
-    + '.ordno{font-size:20px;font-weight:800;text-align:right;} .meta{font-size:12px;color:#555;text-align:right;margin-top:4px;}'
-    + '.cust{background:#f5f5f0;border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:14px;}'
-    + '.section{margin-bottom:18px;page-break-inside:avoid;} .section h2{font-size:15px;margin:0 0 8px;padding-bottom:4px;border-bottom:1px solid #eee;color:#c9a84c;}'
-    + 'table.kv{width:100%;border-collapse:collapse;font-size:13px;} table.kv td{padding:5px 8px;border-bottom:1px solid #f2f2f2;vertical-align:top;} td.lbl{color:#888;width:210px;}'
-    + 'table.mfr{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;} table.mfr th,table.mfr td{padding:6px 8px;border:1px solid #eee;text-align:left;} table.mfr th{background:#f5f5f0;}'
-    + '.photos{display:flex;flex-wrap:wrap;gap:8px;} .photos img{width:150px;height:150px;object-fit:cover;border-radius:6px;border:1px solid #eee;}'
-    + '.footer{margin-top:24px;text-align:center;color:#aaa;font-size:11px;}'
+    + '@page{size:A4;margin:9mm;}'
+    + '*{box-sizing:border-box;}'
+    + 'body{font-family:Arial,Helvetica,sans-serif;color:#0f1b35;margin:0;padding:0;font-size:10.5px;line-height:1.35;}'
+    + '.head{border-bottom:2.5px solid #c9a84c;padding-bottom:7px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:flex-start;}'
+    + '.brand{font-size:17px;font-weight:800;} .brand small{display:block;font-size:10px;color:#888;font-weight:400;}'
+    + '.ordno{font-size:15px;font-weight:800;text-align:right;} .meta{font-size:10px;color:#555;text-align:right;margin-top:3px;}'
+    + '.cust{background:#f5f5f0;border-radius:6px;padding:7px 11px;margin-bottom:9px;font-size:11px;}'
+    + '.sections{column-count:2;column-gap:14px;}'
+    + '.section{margin-bottom:9px;break-inside:avoid;-webkit-column-break-inside:avoid;}'
+    + '.section h2{font-size:11.5px;margin:0 0 3px;padding-bottom:2px;border-bottom:1px solid #eee;color:#c9a84c;}'
+    + 'table.kv{width:100%;border-collapse:collapse;} table.kv td{padding:2px 5px;border-bottom:1px solid #f4f4f4;vertical-align:top;} td.lbl{color:#888;width:42%;}'
+    + 'table.mfr{width:100%;border-collapse:collapse;margin-top:4px;font-size:9.5px;} table.mfr th,table.mfr td{padding:2px 4px;border:1px solid #eee;text-align:left;} table.mfr th{background:#f5f5f0;}'
+    + '.photos-sec{break-inside:avoid;} .photos{display:flex;flex-wrap:wrap;gap:6px;} .photos img{width:88px;height:88px;object-fit:cover;border-radius:5px;border:1px solid #eee;}'
+    + '.footer{margin-top:10px;text-align:center;color:#aaa;font-size:9px;}'
     + '</style></head><body>'
     + '<div class="head"><div class="brand">Adam Store<small>Manufacturing Tracker</small></div>'
     + '<div><div class="ordno">' + esc(order.order_number) + '</div><div class="meta">' + stageTitle + ' &middot; ' + esc(order.status) + '<br>' + created + '</div></div></div>'
     + '<div class="cust"><strong>' + esc(order.customer_name) + '</strong>' + phone + '</div>'
-    + sections + photosHtml
+    + '<div class="sections">' + sections + '</div>'
+    + photosHtml
     + '<div class="footer">Adam Store &mdash; Generated ' + now + '</div>'
     + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}</script>'
     + '</body></html>'
 
-  const w = window.open('', '_blank', 'width=880,height=680')
+  const w = window.open('', '_blank', 'width=900,height=700')
   if (w) { w.document.write(html); w.document.close() }
 }
