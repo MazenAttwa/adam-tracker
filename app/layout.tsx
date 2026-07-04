@@ -3,6 +3,7 @@ import './globals.css'
 import { LanguageProvider } from '@/contexts/LanguageContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { BrandProvider } from '@/contexts/BrandContext'
 
 export const metadata: Metadata = {
   title: 'Adam Store — Manufacturing Tracker',
@@ -21,7 +22,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <LanguageProvider>
           <AuthProvider>
             <ToastProvider>
-              {children}
+              <BrandProvider>
+                {children}
+              </BrandProvider>
             </ToastProvider>
           </AuthProvider>
         </LanguageProvider>
