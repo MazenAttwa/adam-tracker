@@ -10,6 +10,7 @@ import { Navbar } from '@/components/layout/Navbar'
 import { StageProgress } from '@/components/orders/StageProgress'
 import { StageForm } from '@/components/orders/StageForm'
 import { PieceJourney } from '@/components/orders/PieceJourney'
+import { downloadOrderPdf } from '@/lib/orderPdf'
 import { OrderMaterials } from '@/components/orders/OrderMaterials'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -598,6 +599,9 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
                     {tr.advance}
                   </Button>
                 )}
+                <Button size="sm" variant="secondary" onClick={() => order && downloadOrderPdf(order, stageDataMap)}>
+                  {tr.downloadPdf}
+                </Button>
                 <Button size="sm" variant="secondary" onClick={openEditOrder}>
                   {tr.edit}
                 </Button>
