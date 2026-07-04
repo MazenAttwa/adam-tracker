@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
 import { Navbar } from '@/components/layout/Navbar'
+import { BrandName } from '@/components/layout/BrandName'
 
 interface LogisticsRow {
   kind: 'order' | 'material'
@@ -81,7 +82,7 @@ export default function LogisticsPage() {
       <Navbar />
       <div className="max-w-6xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-[#0f1b35] mb-1">{tr.logisticsReport}</h1>
-        <p className="text-gray-500 mb-6">{tr.appName}</p>
+        <p className="text-gray-500 mb-6"><BrandName /></p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">

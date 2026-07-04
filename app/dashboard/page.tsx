@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
+import { useBrand } from '@/contexts/BrandContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { OrderCard } from '@/components/orders/OrderCard'
 import { Badge } from '@/components/ui/Badge'
@@ -13,6 +14,7 @@ import type { Order, Stage, Material, Retailer } from '@/lib/types'
 
 export default function DashboardPage() {
   const { profile, loading } = useAuth()
+  const { brands, brandId } = useBrand()
   const { tr } = useLang()
   const router = useRouter()
   const supabase = createClient()
@@ -139,7 +141,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-[#0f1b35]">{tr.dashboard}</h1>
-            <p className="text-gray-500 text-sm mt-1">{tr.appName} · {tr.appTagline}</p>
+            <p className="text-gray-500 text-sm mt-1">{brands.find(b => b.id === brandId)?.name ?? tr.appName} · {tr.appTagline}</p>
           </div>
           {profile?.role === 'manager' && (
             <Link href="/orders/new"

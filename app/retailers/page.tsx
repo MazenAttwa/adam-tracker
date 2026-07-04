@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
 import { Navbar } from '@/components/layout/Navbar'
+import { BrandName } from '@/components/layout/BrandName'
 import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
@@ -155,7 +156,7 @@ export default function RetailersPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-[#0f1b35]">{tr.retailers}</h1>
-            <p className="text-gray-500 text-sm mt-1">{tr.appName} · {tr.appTagline}</p>
+            <p className="text-gray-500 text-sm mt-1"><BrandName /> · {tr.appTagline}</p>
           </div>
           <Button onClick={openAdd}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

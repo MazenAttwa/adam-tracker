@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
 import { Navbar } from '@/components/layout/Navbar'
+import { BrandName } from '@/components/layout/BrandName'
 import { Button } from '@/components/ui/Button'
 
 const TABLES = [
@@ -80,7 +81,7 @@ export default function BackupPage() {
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-[#0f1b35] mb-1">{tr.backup}</h1>
-        <p className="text-gray-500 mb-6">{tr.appName}</p>
+        <p className="text-gray-500 mb-6"><BrandName /></p>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <p className="text-gray-700 mb-5 leading-relaxed">{tr.backupDesc}</p>
           <Button onClick={exportBackup} loading={busy}>{tr.exportBackup}</Button>

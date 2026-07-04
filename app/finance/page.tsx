@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
 import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
+import { BrandName } from '@/components/layout/BrandName'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Input'
 import { Modal, ConfirmModal } from '@/components/ui/Modal'
@@ -423,7 +424,7 @@ export default function FinancePage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-[#0f1b35]">{tr.finance}</h1>
-            <p className="text-gray-500 text-sm mt-1">{tr.appName} · {tr.appTagline}</p>
+            <p className="text-gray-500 text-sm mt-1"><BrandName /> · {tr.appTagline}</p>
           </div>
           <div className="flex gap-2">
             {tab === 'expenses' && profile?.role === 'manager' && (
