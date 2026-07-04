@@ -18,6 +18,7 @@ export const t = {
 
     // Navigation
     dashboard: 'Dashboard',
+    more: 'More',
     orders: 'Orders',
     newOrder: 'New Order',
     myOrders: 'My Orders',
@@ -575,6 +576,7 @@ export const t = {
     loginError: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
 
     dashboard: 'لوحة التحكم',
+    more: 'المزيد',
     orders: 'الطلبات',
     newOrder: 'طلب جديد',
     myOrders: 'طلباتي',

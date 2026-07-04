@@ -11,35 +11,38 @@ export function Navbar() {
   const { lang, setLang, tr } = useLang()
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
 
   async function handleSignOut() {
     await signOut()
     router.push('/login')
   }
 
-  const navLinks = profile?.role === 'customer'
-    ? [{ href: '/my-orders', label: tr.myOrders }]
+  const linkGroups = profile?.role === 'customer'
+    ? { primary: [{ href: '/my-orders', label: tr.myOrders }], more: [] as { href: string; label: string }[] }
     : profile?.role === 'manager'
-    ? [
-        { href: '/dashboard', label: tr.dashboard },
-        { href: '/orders', label: tr.orders },
-        { href: '/orders/new', label: tr.newOrder },
-        { href: '/materials', label: tr.materials },
-        { href: '/stock', label: tr.stock },
-        { href: '/vendors', label: tr.vendors },
-        { href: '/manufacturers', label: tr.manufacturers },
-        { href: '/finance', label: tr.finance },
-        { href: '/retailers', label: tr.retailers },
-        { href: '/sales', label: tr.sales },
-        { href: '/reports', label: tr.reports },
-    { href: '/logistics', label: tr.logistics },
-    { href: '/backup', label: tr.backup },
-    { href: '/audit', label: tr.auditLog },
-      ]
-    : [
-        { href: '/dashboard', label: tr.dashboard },
-        { href: '/orders', label: tr.orders },
-      ]
+    ? {
+        primary: [
+          { href: '/dashboard', label: tr.dashboard },
+          { href: '/orders', label: tr.orders },
+          { href: '/orders/new', label: tr.newOrder },
+          { href: '/materials', label: tr.materials },
+          { href: '/stock', label: tr.stock },
+          { href: '/finance', label: tr.finance },
+          { href: '/reports', label: tr.reports },
+        ],
+        more: [
+          { href: '/sales', label: tr.sales },
+          { href: '/vendors', label: tr.vendors },
+          { href: '/manufacturers', label: tr.manufacturers },
+          { href: '/retailers', label: tr.retailers },
+          { href: '/logistics', label: tr.logistics },
+          { href: '/backup', label: tr.backup },
+          { href: '/audit', label: tr.auditLog },
+        ],
+      }
+    : { primary: [{ href: '/dashboard', label: tr.dashboard }, { href: '/orders', label: tr.orders }], more: [] as { href: string; label: string }[] }
+  const navLinks = [...linkGroups.primary, ...linkGroups.more]
 
   return (
     <nav className="bg-[#0f1b35] text-white sticky top-0 z-40 shadow-lg">
@@ -58,12 +61,34 @@ export function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden lg:flex items-center gap-0.5">
-            {navLinks.map(l => (
+            {linkGroups.primary.map(l => (
               <Link key={l.href} href={l.href}
                 className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap">
                 {l.label}
               </Link>
             ))}
+            {linkGroups.more.length > 0 && (
+              <div className="relative">
+                <button onClick={() => setMoreOpen(o => !o)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap">
+                  {tr.more}
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+                {moreOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setMoreOpen(false)} />
+                    <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20">
+                      {linkGroups.more.map(l => (
+                        <Link key={l.href} href={l.href} onClick={() => setMoreOpen(false)}
+                          className="block px-4 py-2 text-sm text-[#0f1b35] hover:bg-gray-50 transition-colors">
+                          {l.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Right side */}
