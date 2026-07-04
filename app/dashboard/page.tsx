@@ -200,13 +200,19 @@ export default function DashboardPage() {
         {/* Orders stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[
-            { label: tr.totalOrders, value: stats.total, color: 'text-[#0f1b35]', bg: 'bg-white' },
-            { label: tr.activeOrders, value: stats.active, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { label: tr.completedOrders, value: stats.completed, color: 'text-green-600', bg: 'bg-green-50' },
+            { label: tr.totalOrders, value: stats.total, color: 'text-[#0f1b35]', bg: 'bg-white', iconBg: 'bg-[#0f1b35]/10 text-[#0f1b35]',
+              icon: (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></svg>) },
+            { label: tr.activeOrders, value: stats.active, color: 'text-blue-600', bg: 'bg-blue-50', iconBg: 'bg-blue-100 text-blue-600',
+              icon: (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>) },
+            { label: tr.completedOrders, value: stats.completed, color: 'text-green-600', bg: 'bg-green-50', iconBg: 'bg-green-100 text-green-600',
+              icon: (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="m9 11 3 3L22 4" /></svg>) },
           ].map(s => (
-            <div key={s.label} className={`${s.bg} rounded-xl p-6 border border-gray-100 shadow-sm`}>
-              <p className="text-sm text-gray-500">{s.label}</p>
-              <p className={`text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+            <div key={s.label} className={`${s.bg} rounded-2xl p-6 border border-gray-100 shadow-sm flex items-center justify-between`}>
+              <div>
+                <p className="text-sm text-gray-500">{s.label}</p>
+                <p className={`text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+              </div>
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${s.iconBg}`}>{s.icon}</div>
             </div>
           ))}
         </div>
@@ -217,19 +223,19 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold text-[#0f1b35] mb-3">{tr.thisMonth}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div className="bg-green-50 rounded-xl p-6 border border-green-100 shadow-sm">
-              <p className="text-sm text-gray-500">{tr.revenue}</p>
+              <p className="text-sm text-gray-500 flex items-center gap-1.5"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>{tr.revenue}</p>
               <p className="text-3xl font-bold mt-1 text-green-700 tabular-nums">
                 {monthRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className="bg-red-50 rounded-xl p-6 border border-red-100 shadow-sm">
-              <p className="text-sm text-gray-500">{tr.expenses}</p>
+              <p className="text-sm text-gray-500 flex items-center gap-1.5"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7" /><polyline points="16 17 22 17 22 11" /></svg>{tr.expenses}</p>
               <p className="text-3xl font-bold mt-1 text-red-700 tabular-nums">
                 {monthExp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className={`${netProfit >= 0 ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'} rounded-xl p-6 border shadow-sm`}>
-              <p className="text-sm text-gray-500">{tr.netProfit}</p>
+              <p className="text-sm text-gray-500 flex items-center gap-1.5"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#c9a84c]"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>{tr.netProfit}</p>
               <p className={`text-3xl font-bold mt-1 tabular-nums ${netProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
                 {netProfit >= 0 ? '+' : ''}{netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
@@ -238,19 +244,19 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold text-[#0f1b35] mb-3">{tr.allTime}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div className="bg-green-50 rounded-xl p-6 border border-green-100 shadow-sm">
-              <p className="text-sm text-gray-500">{tr.revenue}</p>
+              <p className="text-sm text-gray-500 flex items-center gap-1.5"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>{tr.revenue}</p>
               <p className="text-3xl font-bold mt-1 text-green-700 tabular-nums">
                 {allRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className="bg-red-50 rounded-xl p-6 border border-red-100 shadow-sm">
-              <p className="text-sm text-gray-500">{tr.expenses}</p>
+              <p className="text-sm text-gray-500 flex items-center gap-1.5"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7" /><polyline points="16 17 22 17 22 11" /></svg>{tr.expenses}</p>
               <p className="text-3xl font-bold mt-1 text-red-700 tabular-nums">
                 {allExp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className={`${allProfit >= 0 ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'} rounded-xl p-6 border shadow-sm`}>
-              <p className="text-sm text-gray-500">{tr.netProfit}</p>
+              <p className="text-sm text-gray-500 flex items-center gap-1.5"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#c9a84c]"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>{tr.netProfit}</p>
               <p className={`text-3xl font-bold mt-1 tabular-nums ${allProfit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
                 {allProfit >= 0 ? '+' : ''}{allProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
