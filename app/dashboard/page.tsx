@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [allRev, setAllRev] = useState(0)
   const [allExp, setAllExp] = useState(0)
   const [lowStock, setLowStock] = useState<Material[]>([])
+  const [stockMap, setStockMap] = useState<Record<string, number>>({})
   const [topRetailers, setTopRetailers] = useState<Retailer[]>([])
   const [orderLogistics, setOrderLogistics] = useState(0)
   const [materialLogistics, setMaterialLogistics] = useState(0)
@@ -77,7 +78,7 @@ export default function DashboardPage() {
       supabase.from('materials').select('*'),
       supabase.from('retailers').select('*').gt('balance', 0).order('balance', { ascending: false }).limit(5),
       supabase.from('stage_data').select('data'),
-      supabase.from('stock_movements').select('logistic_cost'),
+      supabase.from('stock_movements').select('material_id, type, quantity, logistic_cost'),
       supabase.from('revenue').select('amount'),
       supabase.from('expenses').select('amount'),
     ])
@@ -87,7 +88,12 @@ export default function DashboardPage() {
     setAllRev(((allRevD ?? []) as { amount: number }[]).reduce((s, r) => s + (r.amount || 0), 0))
     setAllExp(((allExpD ?? []) as { amount: number }[]).reduce((s, e) => s + (e.amount || 0), 0))
     const allMats = (matD ?? []) as Material[]
-    setLowStock(allMats.filter(mat => mat.current_quantity <= mat.minimum_quantity).slice(0, 5))
+    const sMap: Record<string, number> = {}
+    ;((smD ?? []) as { material_id: string; type: string; quantity: number }[]).forEach(r => {
+      if (r.material_id) sMap[r.material_id] = (sMap[r.material_id] ?? 0) + (r.type === 'in' ? (r.quantity || 0) : -(r.quantity || 0))
+    })
+    setStockMap(sMap)
+    setLowStock(allMats.filter(mat => (sMap[mat.id] ?? 0) <= mat.minimum_quantity).slice(0, 5))
     setTopRetailers((retD ?? []) as Retailer[])
 
     const ordLog = ((sdD ?? []) as { data: Record<string, unknown> | null }[]).reduce((s, row) => {
@@ -316,7 +322,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-bold tabular-nums text-red-600">
-                          {mat.current_quantity.toLocaleString()} / {mat.minimum_quantity.toLocaleString()}
+                          {(stockMap[mat.id] ?? 0).toLocaleString()} / {mat.minimum_quantity.toLocaleString()}
                         </p>
                         <p className="text-xs text-gray-400">{mat.unit}</p>
                       </div>
