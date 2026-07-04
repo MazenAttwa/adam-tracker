@@ -10,11 +10,12 @@ interface BrandContextType {
   loading: boolean
   switchBrand: (id: string) => Promise<void>
   createBrand: (name: string) => Promise<Brand | null>
+  renameBrand: (id: string, name: string) => Promise<boolean>
 }
 
 const BrandContext = createContext<BrandContextType>({
   brandId: null, brands: [], loading: true,
-  switchBrand: async () => {}, createBrand: async () => null,
+  switchBrand: async () => {}, createBrand: async () => null, renameBrand: async () => false,
 })
 
 const STORAGE_KEY = 'adam_brand_id'
@@ -80,8 +81,15 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     return b
   }
 
+  const renameBrand = async (id: string, name: string): Promise<boolean> => {
+    const { error } = await supabase.from('brands').update({ name }).eq('id', id)
+    if (error) return false
+    setBrands(prev => prev.map(b => (b.id === id ? { ...b, name } : b)))
+    return true
+  }
+
   return (
-    <BrandContext.Provider value={{ brandId, brands, loading, switchBrand, createBrand }}>
+    <BrandContext.Provider value={{ brandId, brands, loading, switchBrand, createBrand, renameBrand }}>
       {children}
     </BrandContext.Provider>
   )
