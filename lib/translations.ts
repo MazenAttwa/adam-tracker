@@ -470,6 +470,10 @@ export const t = {
     // Reports module
     reports: 'Reports',
     backup: 'Backup',
+    brand: 'Brand',
+    newBrand: 'New Brand',
+    brandName: 'Brand name',
+    create: 'Create',
     auditLog: 'Audit Log',
     details: 'Details',
     user: 'User',
@@ -994,6 +998,10 @@ export const t = {
 
     reports: 'التقارير',
     backup: 'نسخة احتياطية',
+    brand: 'العلامة التجارية',
+    newBrand: 'علامة جديدة',
+    brandName: 'اسم العلامة',
+    create: 'إنشاء',
     auditLog: 'سجل التغييرات',
     details: 'التفاصيل',
     user: 'المستخدم',

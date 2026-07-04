@@ -8,14 +8,13 @@ interface BrandContextType {
   brandId: string | null
   brands: Brand[]
   loading: boolean
-  setBrand: (id: string) => void
+  switchBrand: (id: string) => Promise<void>
   createBrand: (name: string) => Promise<Brand | null>
-  refreshBrands: () => Promise<void>
 }
 
 const BrandContext = createContext<BrandContextType>({
   brandId: null, brands: [], loading: true,
-  setBrand: () => {}, createBrand: async () => null, refreshBrands: async () => {},
+  switchBrand: async () => {}, createBrand: async () => null,
 })
 
 const STORAGE_KEY = 'adam_brand_id'
@@ -32,12 +31,22 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       if (error || !data) { setLoading(false); return }
       const list = data as Brand[]
       setBrands(list)
-      let stored: string | null = null
-      try { stored = localStorage.getItem(STORAGE_KEY) } catch { /* ignore */ }
-      const valid = stored && list.some(b => b.id === stored) ? stored : (list[0]?.id ?? null)
+      // source of truth for the selection: user_brand_selection, then localStorage, then first brand
+      let selected: string | null = null
+      try {
+        const { data: u } = await supabase.auth.getUser()
+        if (u?.user) {
+          const { data: sel } = await supabase.from('user_brand_selection').select('brand_id').eq('user_id', u.user.id).maybeSingle()
+          if (sel && (sel as { brand_id: string }).brand_id) selected = (sel as { brand_id: string }).brand_id
+        }
+      } catch { /* table may not exist yet */ }
+      if (!selected) {
+        try { const s = localStorage.getItem(STORAGE_KEY); if (s) selected = s } catch { /* ignore */ }
+      }
+      const valid = selected && list.some(b => b.id === selected) ? selected : (list[0]?.id ?? null)
       setBrandId(valid)
     } catch {
-      // brands table not created yet -> stay single-brand (null = no filtering)
+      // brands table not created yet -> single-brand mode
     } finally {
       setLoading(false)
     }
@@ -45,23 +54,34 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { load() }, [load])
 
-  const setBrand = (id: string) => {
-    setBrandId(id)
+  const persistSelection = async (id: string) => {
     try { localStorage.setItem(STORAGE_KEY, id) } catch { /* ignore */ }
+    try {
+      const { data: u } = await supabase.auth.getUser()
+      if (u?.user) {
+        await supabase.from('user_brand_selection').upsert({ user_id: u.user.id, brand_id: id }, { onConflict: 'user_id' })
+      }
+    } catch { /* table may not exist yet */ }
+  }
+
+  const switchBrand = async (id: string) => {
+    if (id === brandId) return
+    await persistSelection(id)
+    // reload so every screen refetches under the new brand
+    window.location.reload()
   }
 
   const createBrand = async (name: string): Promise<Brand | null> => {
     const { data, error } = await supabase.from('brands').insert({ name }).select('id, name').single()
     if (error || !data) return null
-    await load()
-    setBrand((data as Brand).id)
-    return data as Brand
+    const b = data as Brand
+    await persistSelection(b.id)
+    window.location.reload()
+    return b
   }
 
-  const refreshBrands = async () => { await load() }
-
   return (
-    <BrandContext.Provider value={{ brandId, brands, loading, setBrand, createBrand, refreshBrands }}>
+    <BrandContext.Provider value={{ brandId, brands, loading, switchBrand, createBrand }}>
       {children}
     </BrandContext.Provider>
   )

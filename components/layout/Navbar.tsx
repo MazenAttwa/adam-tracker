@@ -1,5 +1,6 @@
 'use client'
 import { useAuth } from '@/contexts/AuthContext'
+import { BrandSwitcher } from '@/components/layout/BrandSwitcher'
 import { useLang } from '@/contexts/LanguageContext'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -52,6 +53,8 @@ export function Navbar() {
               <div className="text-xs text-gray-400 leading-tight">{tr.appTagline}</div>
             </div>
           </Link>
+
+          <div className="ml-1 mr-2"><BrandSwitcher /></div>
 
           {/* Desktop nav */}
           <div className="hidden lg:flex items-center gap-0.5">
