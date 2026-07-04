@@ -113,7 +113,7 @@ export default function DashboardPage() {
   }
 
   const stageCounts = STAGES.reduce((acc, s) => {
-    acc[s] = orders.filter(o => o.current_stage === s && o.status === 'active').length
+    acc[s] = orders.filter(o => o.current_stage === s && o.status !== 'cancelled').length
     return acc
   }, {} as Record<Stage, number>)
 
