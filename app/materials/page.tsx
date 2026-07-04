@@ -152,7 +152,7 @@ export default function MaterialsPage() {
       name: m.name,
       code: m.code,
       unit: m.unit,
-      current_quantity: String(m.current_quantity),
+      current_quantity: String(stockMap[m.id] ?? m.current_quantity),
       minimum_quantity: String(m.minimum_quantity),
       cost_per_unit: String(m.cost_per_unit),
       notes: m.notes ?? '',
@@ -195,6 +195,19 @@ export default function MaterialsPage() {
     if (editing) {
       const { error } = await supabase.from('materials').update(payload).eq('id', editing.id)
       if (error) { setFormError(error.message); setSaving(false); return }
+      // Keep the stock ledger in sync: record an adjustment for any change to the quantity
+      const liveStock = stockMap[editing.id] ?? 0
+      const delta = (parseFloat(form.current_quantity) || 0) - liveStock
+      if (Math.abs(delta) > 0.0001) {
+        await supabase.from('stock_movements').insert({
+          material_id: editing.id,
+          type: delta > 0 ? 'in' : 'out',
+          quantity: Math.abs(delta),
+          notes: 'Manual adjustment (edit)',
+          purchase_date: new Date().toISOString().slice(0, 10),
+          created_by: profile?.id,
+        })
+      }
     } else {
       const { data: newMat, error } = await supabase
         .from('materials')
