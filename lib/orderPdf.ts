@@ -106,8 +106,8 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
 
   const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(order.order_number) + '</title><style>'
     + '@page{size:A4;margin:9mm;}'
-    + '*{box-sizing:border-box;}'
-    + 'body{font-family:Arial,Helvetica,sans-serif;color:#0f1b35;margin:0;padding:0;font-size:10.5px;line-height:1.35;}'
+    + '*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + 'html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact;} body{font-family:Arial,Helvetica,sans-serif;color:#0f1b35;margin:0;padding:0;font-size:10.5px;line-height:1.35;}'
     + '.head{border-bottom:2.5px solid #c9a84c;padding-bottom:7px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:flex-start;}'
     + '.brand{font-size:17px;font-weight:800;} .brand small{display:block;font-size:10px;color:#888;font-weight:400;}'
     + '.ordno{font-size:15px;font-weight:800;text-align:right;} .meta{font-size:10px;color:#555;text-align:right;margin-top:3px;}'
