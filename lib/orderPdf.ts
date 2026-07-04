@@ -24,6 +24,47 @@ const ORDER = ['draft', 'preparation', 'cutting', 'printing', 'finishing', 'subm
 function esc(s: string) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
 function pretty(k: string) { return LABELS[k] ?? k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }
 
+function pieceJourneyHtml(stageDataMap: Record<string, StageData>): string {
+  const num = (stage: string, key: string) => {
+    const v = (stageDataMap[stage]?.data as Record<string, unknown> | undefined)?.[key]
+    return typeof v === 'number' ? v : 0
+  }
+  const arr = (stageDataMap['finishing']?.data as Record<string, unknown> | undefined)?.['manufacturers']
+  const finishingQty = Array.isArray(arr) ? (arr as { quantity?: number }[]).reduce((s, m) => s + (m.quantity ?? 0), 0) : 0
+  const steps = [
+    { label: 'Draft', qty: num('draft', 'quantity') },
+    { label: 'Cutting', qty: num('cutting', 'quantity_to_cut') },
+    { label: 'Printing', qty: num('printing', 'quantity_to_print') },
+    { label: 'Finishing', qty: finishingQty },
+    { label: 'Submitted', qty: num('submitted', 'quantity_submitted') },
+    { label: 'Received', qty: num('received', 'quantity_received') },
+  ]
+  const expected = steps[0].qty
+  if (expected <= 0) return ''
+  const maxQty = Math.max(...steps.map(s => s.qty), 1)
+  const finalQty = steps[5].qty || steps[4].qty || 0
+  const missing = expected - finalQty
+  const badge = finalQty > 0
+    ? (missing > 0
+        ? '<span class="pj-badge pj-bad">Missing: ' + missing + ' (' + ((missing / expected) * 100).toFixed(1) + '%)</span>'
+        : '<span class="pj-badge pj-ok">Complete &#10003;</span>')
+    : ''
+  const cols = steps.map((s, i) => {
+    const h = s.qty > 0 ? Math.max(Math.round((s.qty / maxQty) * 96), 4) : 2
+    const color = i === 0 ? '#0f1b35' : s.qty === 0 ? '#e5e7eb' : s.qty < expected ? '#f59e0b' : '#22c55e'
+    const diff = expected > 0 ? s.qty - expected : 0
+    const diffHtml = (i > 0 && s.qty > 0 && diff !== 0)
+      ? '<div class="pj-diff" style="color:' + (diff < 0 ? '#dc2626' : '#16a34a') + '">' + (diff > 0 ? '+' : '') + diff + '</div>'
+      : '<div class="pj-diff">&nbsp;</div>'
+    return '<div class="pj-col"><div class="pj-box"><div class="pj-val">' + s.qty + '</div>'
+      + '<div class="pj-bar" style="height:' + h + 'px;background:' + color + '"></div></div>'
+      + '<div class="pj-lab">' + s.label + '</div>' + diffHtml + '</div>'
+  }).join('')
+  return '<div class="section pj"><div class="pj-head"><h2>Piece Journey (quantity through stages)</h2>' + badge + '</div>'
+    + '<div class="pj-bars">' + cols + '</div>'
+    + '<p class="pj-foot">Expected: ' + expected + ' &middot; Received: ' + (steps[5].qty || '-') + '</p></div>'
+}
+
 export async function downloadOrderPdf(order: Order, stageDataMap: Record<string, StageData>) {
   const supabase = createClient()
   let photosHtml = ''
@@ -61,6 +102,7 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
   const now = new Date().toLocaleString('en-GB')
   const stageTitle = STAGE_TITLES[order.current_stage] ?? order.current_stage
   const phone = order.customer_phone ? ' &middot; ' + esc(order.customer_phone) : ''
+  const pj = pieceJourneyHtml(stageDataMap)
 
   const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(order.order_number) + '</title><style>'
     + '@page{size:A4;margin:9mm;}'
@@ -76,13 +118,22 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     + 'table.kv{width:100%;border-collapse:collapse;} table.kv td{padding:2px 5px;border-bottom:1px solid #f4f4f4;vertical-align:top;} td.lbl{color:#888;width:42%;}'
     + 'table.mfr{width:100%;border-collapse:collapse;margin-top:4px;font-size:9.5px;} table.mfr th,table.mfr td{padding:2px 4px;border:1px solid #eee;text-align:left;} table.mfr th{background:#f5f5f0;}'
     + '.photos-sec{break-inside:avoid;} .photos{display:flex;flex-wrap:wrap;gap:6px;} .photos img{width:88px;height:88px;object-fit:cover;border-radius:5px;border:1px solid #eee;}'
-    + '.footer{margin-top:10px;text-align:center;color:#aaa;font-size:9px;}'
+    + '.pj{break-inside:avoid;margin-top:6px;} .pj h2{color:#0f1b35;border:none;font-size:13px;margin:0;} .pj-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}'
+    + '.pj-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;} .pj-bad{color:#dc2626;background:#fef2f2;} .pj-ok{color:#16a34a;background:#f0fdf4;}'
+    + '.pj-bars{display:flex;align-items:flex-end;gap:8px;}'
+    + '.pj-col{flex:1;display:flex;flex-direction:column;align-items:center;}'
+    + '.pj-box{height:108px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;width:100%;}'
+    + '.pj-val{font-size:12px;font-weight:700;margin-bottom:2px;} .pj-bar{width:26px;border-radius:4px 4px 0 0;}'
+    + '.pj-lab{font-size:10px;color:#555;margin-top:4px;text-align:center;} .pj-diff{font-size:10px;font-weight:600;}'
+    + '.pj-foot{font-size:9.5px;color:#999;margin-top:6px;}'
+    + '.footer{margin-top:12px;text-align:center;color:#aaa;font-size:9px;}'
     + '</style></head><body>'
     + '<div class="head"><div class="brand">Adam Store<small>Manufacturing Tracker</small></div>'
     + '<div><div class="ordno">' + esc(order.order_number) + '</div><div class="meta">' + stageTitle + ' &middot; ' + esc(order.status) + '<br>' + created + '</div></div></div>'
     + '<div class="cust"><strong>' + esc(order.customer_name) + '</strong>' + phone + '</div>'
     + '<div class="sections">' + sections + '</div>'
     + photosHtml
+    + pj
     + '<div class="footer">Adam Store &mdash; Generated ' + now + '</div>'
     + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}</script>'
     + '</body></html>'
