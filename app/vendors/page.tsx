@@ -461,7 +461,7 @@ export default function VendorsPage() {
           {vendorTxs.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-4">{tr.noTransactions}</p>
           ) : (
-            <div className="rounded-xl border border-gray-100 overflow-hidden">
+            <div className="rounded-xl border border-gray-100 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
