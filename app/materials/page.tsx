@@ -406,7 +406,7 @@ export default function MaterialsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-[#0f1b35]">{tr.materials}</h1>
+            <h1 className="text-2xl font-bold text-[#0f1b35] flex items-center gap-2.5"><span className="w-1.5 h-7 bg-[#c9a84c] rounded-full" />{tr.materials}</h1>
             <p className="text-gray-500 text-sm mt-1"><BrandName /> · {tr.appTagline}</p>
           </div>
           {profile?.role === 'manager' && (

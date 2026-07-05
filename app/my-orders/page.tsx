@@ -63,7 +63,7 @@ export default function MyOrdersPage() {
       <Navbar />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[#0f1b35]">{tr.myOrders}</h1>
+          <h1 className="text-2xl font-bold text-[#0f1b35] flex items-center gap-2.5"><span className="w-1.5 h-7 bg-[#c9a84c] rounded-full" />{tr.myOrders}</h1>
           <p className="text-gray-500 text-sm mt-1">{tr.appName}</p>
         </div>
 

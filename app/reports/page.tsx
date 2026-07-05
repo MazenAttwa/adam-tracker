@@ -469,7 +469,7 @@ export default function ReportsPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-[#0f1b35]">{tr.reports}</h1>
+          <h1 className="text-2xl font-bold text-[#0f1b35] flex items-center gap-2.5"><span className="w-1.5 h-7 bg-[#c9a84c] rounded-full" />{tr.reports}</h1>
           <p className="text-gray-500 text-sm mt-1"><BrandName /> · {tr.appTagline}</p>
         </div>
 

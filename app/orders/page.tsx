@@ -126,7 +126,7 @@ export default function OrdersPage() {
 
         {/* Page title */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-[#0f1b35]">{tr.orders}</h1>
+          <h1 className="text-2xl font-bold text-[#0f1b35] flex items-center gap-2.5"><span className="w-1.5 h-7 bg-[#c9a84c] rounded-full" />{tr.orders}</h1>
           {profile?.role === 'manager' && (
             <Link href="/orders/new"
               className="inline-flex items-center gap-2 bg-[#0f1b35] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#1a2d55] transition-colors">

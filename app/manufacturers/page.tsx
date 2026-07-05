@@ -159,7 +159,7 @@ export default function ManufacturersPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#0f1b35]">{tr.manufacturers}</h1>
+            <h1 className="text-2xl font-bold text-[#0f1b35] flex items-center gap-2.5"><span className="w-1.5 h-7 bg-[#c9a84c] rounded-full" />{tr.manufacturers}</h1>
             <p className="text-sm text-gray-500 mt-1">
               {filtered.length} {tr.totalManufacturers.toLowerCase()}
             </p>
