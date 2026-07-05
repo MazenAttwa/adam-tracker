@@ -220,7 +220,7 @@ export default function DashboardPage() {
         {/* Financial summary: this month + all-time (manager only) */}
         {profile?.role === 'manager' && (
           <>
-          <h2 className="text-lg font-semibold text-[#0f1b35] mb-3">{tr.thisMonth}</h2>
+          <h2 className="text-lg font-semibold text-[#0f1b35] mb-3 flex items-center gap-2"><span className="w-1 h-5 bg-[#c9a84c] rounded-full" />{tr.thisMonth}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div className="bg-green-50 rounded-xl p-6 border border-green-100 shadow-sm">
               <p className="text-sm text-gray-500 flex items-center gap-1.5"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>{tr.revenue}</p>
@@ -241,7 +241,7 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-          <h2 className="text-lg font-semibold text-[#0f1b35] mb-3">{tr.allTime}</h2>
+          <h2 className="text-lg font-semibold text-[#0f1b35] mb-3 flex items-center gap-2"><span className="w-1 h-5 bg-[#c9a84c] rounded-full" />{tr.allTime}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div className="bg-green-50 rounded-xl p-6 border border-green-100 shadow-sm">
               <p className="text-sm text-gray-500 flex items-center gap-1.5"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>{tr.revenue}</p>
@@ -268,7 +268,7 @@ export default function DashboardPage() {
         {/* Logistics costs (manager only) */}
         {profile?.role === 'manager' && (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
-            <h2 className="font-semibold text-[#0f1b35] mb-4">{tr.logisticsReport}</h2>
+            <h2 className="font-semibold text-[#0f1b35] mb-4 flex items-center gap-2"><span className="w-1 h-5 bg-[#c9a84c] rounded-full" />{tr.logisticsReport}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
                 <p className="text-sm text-gray-500">{tr.orderLogistics}</p>
@@ -295,7 +295,7 @@ export default function DashboardPage() {
         {/* Pipeline overview (manager only) */}
         {profile?.role === 'manager' && (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
-            <h2 className="font-semibold text-[#0f1b35] mb-4">{tr.pipeline}</h2>
+            <h2 className="font-semibold text-[#0f1b35] mb-4 flex items-center gap-2"><span className="w-1 h-5 bg-[#c9a84c] rounded-full" />{tr.pipeline}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {STAGES.map(stage => (
                 <Link key={stage} href={`/orders?stage=${stage}`}
