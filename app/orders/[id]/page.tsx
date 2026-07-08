@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
-import { logAudit } from '@/lib/audit'
+import { logAudit, diffDetails } from '@/lib/audit'
 import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { StageProgress } from '@/components/orders/StageProgress'
@@ -117,6 +117,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   async function handleStageSaved() {
     await fetchStageData()
     if (activeTab === 'received') await recordSaleFromReceived()
+    if (order) logAudit({ id: profile?.id, email: profile?.email }, 'stage', 'order', order.order_number, 'Updated ' + activeTab + ' stage of ' + order.order_number)
   }
 
   // Auto-record a Sale (direct customer, no retailer) when the Received stage has revenue
@@ -427,7 +428,12 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
     setShowEdit(false)
     showToast(tr.savedOk)
     await fetchOrder()
-    logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'order', editForm.order_number, `Edited order details for ${editForm.order_number}`)
+    const editChanges = diffDetails(
+      { order_number: order.order_number, customer_name: order.customer_name, customer_phone: order.customer_phone ?? '', date: (order.created_at || '').slice(0, 10) },
+      { order_number: editForm.order_number.trim(), customer_name: editForm.customer_name.trim(), customer_phone: editForm.customer_phone.trim(), date: (editForm.created_at || order.created_at || '').slice(0, 10) },
+      { order_number: 'Order #', customer_name: 'Customer', customer_phone: 'Phone', date: 'Date' },
+    )
+    logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'order', editForm.order_number, editChanges ? editForm.order_number + ' \u2014 ' + editChanges : editForm.order_number + ' (no field changes)')
   }
 
   async function handleDelete() {

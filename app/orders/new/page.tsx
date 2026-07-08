@@ -3,6 +3,7 @@ import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
+import { logAudit } from '@/lib/audit'
 import { useLang } from '@/contexts/LanguageContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/Button'
@@ -50,6 +51,7 @@ export default function NewOrderPage() {
       return
     }
 
+    logAudit({ id: profile?.id, email: profile?.email }, 'create', 'order', data.order_number, 'Created order ' + data.order_number + ' for ' + data.customer_name)
     router.push(`/orders/${data.id}`)
   }
 

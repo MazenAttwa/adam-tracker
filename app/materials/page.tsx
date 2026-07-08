@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLang } from '@/contexts/LanguageContext'
-import { logAudit } from '@/lib/audit'
+import { logAudit, diffDetails } from '@/lib/audit'
 import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { BrandName } from '@/components/layout/BrandName'
@@ -208,6 +208,11 @@ export default function MaterialsPage() {
           created_by: profile?.id,
         })
       }
+      logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'material', payload.name, diffDetails(
+        { name: editing.name, code: editing.code, unit: editing.unit, min: editing.minimum_quantity, cost: editing.cost_per_unit, stock: liveStock },
+        { name: payload.name, code: payload.code, unit: payload.unit, min: payload.minimum_quantity, cost: payload.cost_per_unit, stock: parseFloat(form.current_quantity) || 0 },
+        { name: 'Name', code: 'Code', unit: 'Unit', min: 'Min level', cost: 'Cost/unit', stock: 'Stock' },
+      ) || (payload.name + ' (no changes)'))
     } else {
       const { data: newMat, error } = await supabase
         .from('materials')
@@ -215,6 +220,7 @@ export default function MaterialsPage() {
         .select()
         .single()
       if (error) { setFormError(error.message); setSaving(false); return }
+      logAudit({ id: profile?.id, email: profile?.email }, 'create', 'material', payload.name, 'Created material "' + payload.name + '" (qty ' + payload.current_quantity + ', cost ' + payload.cost_per_unit + ')')
 
       // Record initial stock as an opening 'in' movement so the ledger stays accurate
       if (newMat && payload.current_quantity > 0) {
@@ -370,6 +376,7 @@ export default function MaterialsPage() {
       }
     }
 
+    logAudit({ id: profile?.id, email: profile?.email }, 'buy', 'material', reorderMaterial.name, 'Bought ' + qty + ' ' + reorderMaterial.unit + ' of "' + reorderMaterial.name + '"')
     setReordering(false)
     setReorderMaterial(null)
     fetchMaterials()

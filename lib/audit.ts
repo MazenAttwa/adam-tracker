@@ -27,3 +27,23 @@ export async function logAudit(
     // ignore — auditing is best-effort
   }
 }
+
+// Build a human-readable "field: old -> new" summary of what changed.
+export function diffDetails(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  labels?: Record<string, string>,
+): string {
+  const changes: string[] = []
+  for (const key of Object.keys(after)) {
+    const b = before[key]
+    const a = after[key]
+    const bs = b === null || b === undefined ? '' : String(b)
+    const as = a === null || a === undefined ? '' : String(a)
+    if (bs !== as) {
+      const label = labels?.[key] ?? key
+      changes.push(label + ': "' + bs + '" \u2192 "' + as + '"')
+    }
+  }
+  return changes.join(', ')
+}
