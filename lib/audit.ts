@@ -34,16 +34,17 @@ export function diffDetails(
   after: Record<string, unknown>,
   labels?: Record<string, string>,
 ): string {
+  const norm = (v: unknown) => (v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v))
+  const pretty = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
   const changes: string[] = []
-  for (const key of Object.keys(after)) {
-    const b = before[key]
-    const a = after[key]
-    const bs = b === null || b === undefined ? '' : String(b)
-    const as = a === null || a === undefined ? '' : String(a)
-    if (bs !== as) {
-      const label = labels?.[key] ?? key
-      changes.push(label + ': "' + bs + '" \u2192 "' + as + '"')
-    }
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)])
+  for (const key of keys) {
+    const bs = norm(before[key])
+    const as = norm(after[key])
+    if (bs === as) continue
+    const label = labels?.[key] ?? pretty(key)
+    if (bs.length > 40 || as.length > 40) changes.push(label + ' (changed)')
+    else changes.push(label + ': "' + bs + '" \u2192 "' + as + '"')
   }
   return changes.join(', ')
 }

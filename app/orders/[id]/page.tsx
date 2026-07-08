@@ -115,9 +115,13 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
   }
 
   async function handleStageSaved() {
+    const before = (stageDataMap[activeTab]?.data ?? {}) as Record<string, unknown>
     await fetchStageData()
     if (activeTab === 'received') await recordSaleFromReceived()
-    if (order) logAudit({ id: profile?.id, email: profile?.email }, 'stage', 'order', order.order_number, 'Updated ' + activeTab + ' stage of ' + order.order_number)
+    const { data: sd } = await supabase.from('stage_data').select('data').eq('order_id', id).eq('stage', activeTab).maybeSingle()
+    const after = ((sd?.data) ?? {}) as Record<string, unknown>
+    const changes = diffDetails(before, after)
+    if (order) logAudit({ id: profile?.id, email: profile?.email }, 'stage', 'order', order.order_number, order.order_number + ' \u2014 ' + activeTab + ' stage \u2014 ' + (changes || 'saved'))
   }
 
   // Auto-record a Sale (direct customer, no retailer) when the Received stage has revenue
