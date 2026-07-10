@@ -28,7 +28,7 @@ const EMPTY_FORM = {
   notes: '',
 }
 
-interface MfrWork { orderId: string; orderNumber: string; stage: string; qty: number; cost: number; date: string }
+interface MfrWork { orderId: string; orderNumber: string; stage: string; qty: number; cost: number; date: string; photoUrl: string }
 interface MfrPayment { id: string; manufacturer_id: string; amount: number; date: string; notes: string | null }
 
 export default function ManufacturersPage() {
@@ -87,13 +87,20 @@ export default function ManufacturersPage() {
   }
 
   async function fetchAccounts() {
-    const [{ data: ordersD }, { data: sdD }, { data: paysD }] = await Promise.all([
+    const [{ data: ordersD }, { data: sdD }, { data: paysD }, { data: photosD }] = await Promise.all([
       supabase.from('orders').select('id, order_number, created_at'),
       supabase.from('stage_data').select('order_id, stage, data'),
       supabase.from('manufacturer_payments').select('*'),
+      supabase.from('order_photos').select('order_id, file_path'),
     ])
     const orderMap = new Map<string, { order_number: string; created_at: string }>()
     ;((ordersD ?? []) as { id: string; order_number: string; created_at: string }[]).forEach(o => orderMap.set(o.id, { order_number: o.order_number, created_at: o.created_at }))
+    const photoMap = new Map<string, string>()
+    ;((photosD ?? []) as { order_id: string; file_path: string }[]).forEach(ph => {
+      if (!photoMap.has(ph.order_id) && ph.file_path) {
+        photoMap.set(ph.order_id, supabase.storage.from('product-photos').getPublicUrl(ph.file_path).data.publicUrl)
+      }
+    })
     const byName: Record<string, MfrWork[]> = {}
     const add = (name: string, w: MfrWork) => {
       const key = name.toLowerCase().trim()
@@ -104,16 +111,17 @@ export default function ManufacturersPage() {
       const o = orderMap.get(r.order_id)
       const on = o?.order_number ?? '?'
       const date = (o?.created_at ?? '').slice(0, 10)
+      const photoUrl = photoMap.get(r.order_id) ?? ''
       const d = r.data ?? {}
       if (r.stage === 'cutting' || r.stage === 'printing') {
         const name = typeof d['manufacturer_name'] === 'string' ? (d['manufacturer_name'] as string) : ''
         const cost = r.stage === 'cutting' ? Number(d['total_cutting_cost'] ?? 0) : Number(d['total_printing_cost'] ?? 0)
         const qty = r.stage === 'cutting' ? Number(d['quantity_to_cut'] ?? 0) : Number(d['quantity_to_print'] ?? 0)
-        if (name && cost > 0) add(name, { orderId: r.order_id, orderNumber: on, stage: r.stage, qty, cost, date })
+        if (name && cost > 0) add(name, { orderId: r.order_id, orderNumber: on, stage: r.stage, qty, cost, date, photoUrl })
       }
       if (r.stage === 'finishing' && Array.isArray(d['manufacturers'])) {
         ;(d['manufacturers'] as { manufacturer_name?: string; quantity?: number; subtotal?: number }[]).forEach(m => {
-          if (m.manufacturer_name && (m.subtotal ?? 0) > 0) add(m.manufacturer_name, { orderId: r.order_id, orderNumber: on, stage: 'finishing', qty: m.quantity ?? 0, cost: m.subtotal ?? 0, date })
+          if (m.manufacturer_name && (m.subtotal ?? 0) > 0) add(m.manufacturer_name, { orderId: r.order_id, orderNumber: on, stage: 'finishing', qty: m.quantity ?? 0, cost: m.subtotal ?? 0, date, photoUrl })
         })
       }
     })
@@ -150,6 +158,74 @@ export default function ManufacturersPage() {
     setPayForm({ amount: '', date: new Date().toISOString().slice(0, 10), notes: '' })
     setPaySaving(false)
     fetchAccounts()
+  }
+
+  async function deletePayment(payId: string) {
+    if (!detailMfr) return
+    await supabase.from('manufacturer_payments').delete().eq('id', payId)
+    logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'manufacturer', detailMfr.name, 'Removed a payment for "' + detailMfr.name + '"')
+    fetchAccounts()
+  }
+
+  function printAccount(m: Manufacturer) {
+    const a = accountFor(m)
+    const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const esc = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const pct = a.owed > 0 ? Math.min(100, Math.round((a.paid / a.owed) * 100)) : (a.paid > 0 ? 100 : 0)
+    const now = new Date().toLocaleString('en-GB')
+    const workRows = a.works.length ? a.works.map(w =>
+      '<tr>'
+      + '<td class="ph">' + (w.photoUrl ? '<img src="' + w.photoUrl + '" />' : '') + '</td>'
+      + '<td><b>' + esc(w.orderNumber) + '</b></td>'
+      + '<td class="cap">' + esc(w.stage) + '</td>'
+      + '<td class="r">' + w.qty + '</td>'
+      + '<td class="r"><b>' + fmt(w.cost) + '</b></td>'
+      + '<td>' + esc(w.date) + '</td>'
+      + '</tr>'
+    ).join('') : '<tr><td colspan="6" class="empty">No work recorded</td></tr>'
+    const payRows = a.mPays.length ? a.mPays.map(p =>
+      '<tr><td>' + esc(p.date) + '</td><td>' + esc(p.notes || '') + '</td><td class="r paid">' + fmt(p.amount) + '</td></tr>'
+    ).join('') : '<tr><td colspan="3" class="empty">No payments recorded yet</td></tr>'
+
+    const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(m.name) + '</title><style>'
+      + '*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+      + '@page{size:A4;margin:12mm;}'
+      + 'body{font-family:Arial,Helvetica,sans-serif;color:#0f1b35;margin:0;font-size:12px;}'
+      + '.head{border-bottom:2.5px solid #c9a84c;padding-bottom:10px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;}'
+      + '.brand{font-size:18px;font-weight:800;} .brand small{display:block;font-size:11px;color:#888;font-weight:400;}'
+      + '.mfr{font-size:16px;font-weight:800;text-align:right;} .mfr small{display:block;font-size:11px;color:#666;font-weight:400;}'
+      + '.cards{display:flex;gap:10px;margin-bottom:14px;}'
+      + '.card{flex:1;border-radius:8px;padding:12px;text-align:center;border:1px solid #eee;}'
+      + '.card .lab{font-size:11px;color:#777;} .card .val{font-size:18px;font-weight:800;margin-top:2px;}'
+      + '.owed{background:#f8f8f4;} .paidc{background:#f0fdf4;} .paidc .val{color:#16a34a;}'
+      + '.remc{background:#fef2f2;} .remc .val{color:#dc2626;} .remc.ok{background:#f0fdf4;} .remc.ok .val{color:#16a34a;}'
+      + '.bar-wrap{height:16px;background:#eee;border-radius:8px;overflow:hidden;margin-bottom:4px;}'
+      + '.bar{height:100%;background:#16a34a;}'
+      + '.bar-lab{font-size:11px;color:#777;margin-bottom:16px;}'
+      + 'h2{font-size:13px;color:#c9a84c;border-bottom:1px solid #eee;padding-bottom:3px;margin:14px 0 6px;}'
+      + 'table{width:100%;border-collapse:collapse;font-size:11px;}'
+      + 'th{background:#f5f5f0;text-align:left;padding:6px 8px;font-size:10px;color:#555;}'
+      + 'td{padding:6px 8px;border-bottom:1px solid #f2f2f2;} td.r{text-align:right;} td.cap{text-transform:capitalize;} td.paid{color:#16a34a;font-weight:700;}'
+      + 'td.ph{width:46px;} td.ph img{width:38px;height:38px;object-fit:cover;border-radius:5px;border:1px solid #eee;}'
+      + 'td.empty{text-align:center;color:#999;padding:14px;}'
+      + '.foot{margin-top:16px;text-align:center;color:#aaa;font-size:10px;}'
+      + '</style></head><body>'
+      + '<div class="head"><div class="brand">Adam Store<small>Manufacturing Tracker</small></div>'
+      + '<div class="mfr">' + esc(m.name) + (m.phone ? '<small>' + esc(m.phone) + '</small>' : '') + '<small>' + now + '</small></div></div>'
+      + '<div class="cards">'
+      + '<div class="card owed"><div class="lab">Total Owed</div><div class="val">' + fmt(a.owed) + '</div></div>'
+      + '<div class="card paidc"><div class="lab">Total Paid</div><div class="val">' + fmt(a.paid) + '</div></div>'
+      + '<div class="card remc ' + (a.remaining > 0.005 ? '' : 'ok') + '"><div class="lab">Remaining</div><div class="val">' + fmt(a.remaining) + '</div></div>'
+      + '</div>'
+      + '<div class="bar-wrap"><div class="bar" style="width:' + pct + '%"></div></div>'
+      + '<div class="bar-lab">' + pct + '% paid of total owed</div>'
+      + '<h2>Work Done</h2><table><thead><tr><th></th><th>Order</th><th>Stage</th><th class="r">Qty</th><th class="r">Cost</th><th>Date</th></tr></thead><tbody>' + workRows + '</tbody></table>'
+      + '<h2>Payment History</h2><table><thead><tr><th>Date</th><th>Note</th><th class="r">Amount</th></tr></thead><tbody>' + payRows + '</tbody></table>'
+      + '<div class="foot">Adam Store &mdash; Manufacturer account generated ' + now + '</div>'
+      + '<script>window.onload=function(){setTimeout(function(){window.print()},500)}</script>'
+      + '</body></html>'
+    const w = window.open('', '_blank', 'width=900,height=700')
+    if (w) { w.document.write(html); w.document.close() }
   }
 
   function setF(key: string, val: string) {
@@ -427,12 +503,33 @@ export default function ManufacturersPage() {
                 </div>
               </div>
 
+              {(() => {
+                const pct = a.owed > 0 ? Math.min(100, Math.round((a.paid / a.owed) * 100)) : (a.paid > 0 ? 100 : 0)
+                return (
+                  <div>
+                    <div className="h-3 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full bg-green-500" style={{ width: pct + '%' }} />
+                    </div>
+                    <div className="flex justify-between text-[11px] text-gray-500 mt-1">
+                      <span>{pct}%</span>
+                      <span>{tr.remaining}: <b className={a.remaining > 0.005 ? 'text-red-600' : 'text-green-700'}>{fmt(a.remaining)}</b></span>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              <button onClick={() => printAccount(detailMfr)} className="w-full flex items-center justify-center gap-2 rounded-lg border border-[#0f1b35] text-[#0f1b35] hover:bg-[#0f1b35] hover:text-white transition-colors py-2 text-sm font-medium">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+                {tr.printPdf}
+              </button>
+
               <div>
                 <h3 className="text-sm font-semibold text-[#0f1b35] mb-2">{tr.workDone}</h3>
                 <div className="rounded-lg border border-gray-100 overflow-x-auto max-h-56 overflow-y-auto">
                   <table className="w-full text-xs">
                     <thead className="bg-gray-50 sticky top-0">
                       <tr>
+                        <th className="px-3 py-2"></th>
                         <th className="text-left px-3 py-2 font-medium text-gray-500">{tr.orders}</th>
                         <th className="text-left px-3 py-2 font-medium text-gray-500">{tr.stage}</th>
                         <th className="text-right px-3 py-2 font-medium text-gray-500">{tr.quantity}</th>
@@ -442,10 +539,15 @@ export default function ManufacturersPage() {
                     </thead>
                     <tbody>
                       {a.works.length === 0 && (
-                        <tr><td colSpan={5} className="px-3 py-4 text-center text-gray-400">—</td></tr>
+                        <tr><td colSpan={6} className="px-3 py-4 text-center text-gray-400">—</td></tr>
                       )}
                       {a.works.map((w, i) => (
                         <tr key={i} className="border-t border-gray-50">
+                          <td className="px-3 py-1.5">
+                            {w.photoUrl
+                              ? <img src={w.photoUrl} alt="" className="w-9 h-9 rounded object-cover border border-gray-100" />
+                              : <div className="w-9 h-9 rounded bg-gray-100" />}
+                          </td>
                           <td className="px-3 py-2 font-medium text-[#0f1b35]">{w.orderNumber}</td>
                           <td className="px-3 py-2 text-gray-600 capitalize">{w.stage}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{w.qty}</td>
@@ -470,7 +572,14 @@ export default function ManufacturersPage() {
                           <span className="font-medium text-green-700 tabular-nums">{fmt(p.amount)}</span>
                           {p.notes && <span className="text-gray-400 ml-2">{p.notes}</span>}
                         </div>
-                        <span className="text-gray-500">{p.date}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">{p.date}</span>
+                          {profile?.role === 'manager' && (
+                            <button onClick={() => deletePayment(p.id)} className="text-red-400 hover:text-red-600" title={tr.delete}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
