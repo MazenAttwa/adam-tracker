@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
+import { logAudit, diffDetails } from '@/lib/audit'
 import { useLang } from '@/contexts/LanguageContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { BrandName } from '@/components/layout/BrandName'
@@ -104,9 +105,15 @@ export default function VendorsPage() {
     if (editingVendor) {
       const { error } = await supabase.from('vendors').update(payload).eq('id', editingVendor.id)
       if (error) { setVendorError(error.message); setVendorSaving(false); return }
+      logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'vendor', payload.name, diffDetails(
+        { name: editingVendor.name, phone: editingVendor.phone ?? '', category: editingVendor.category, notes: editingVendor.notes ?? '' },
+        { name: payload.name, phone: payload.phone, category: payload.category, notes: payload.notes },
+        { name: 'Name', phone: 'Phone', category: 'Category', notes: 'Notes' },
+      ) || (payload.name + ' (no changes)'))
     } else {
       const { error } = await supabase.from('vendors').insert({ ...payload, created_by: profile?.id })
       if (error) { setVendorError(error.message); setVendorSaving(false); return }
+      logAudit({ id: profile?.id, email: profile?.email }, 'create', 'vendor', payload.name, 'Created vendor "' + payload.name + '"')
     }
     setVendorSaving(false)
     setShowVendorForm(false)
@@ -116,6 +123,7 @@ export default function VendorsPage() {
   async function handleDeleteVendor() {
     if (!deleteTarget) return
     setDeleting(true)
+    logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'vendor', deleteTarget.name, 'Deleted vendor "' + deleteTarget.name + '"')
     await supabase.from('vendors').delete().eq('id', deleteTarget.id)
     setDeleting(false)
     setDeleteTarget(null)

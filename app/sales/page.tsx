@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
+import { logAudit, diffDetails } from '@/lib/audit'
 import { useLang } from '@/contexts/LanguageContext'
 import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
@@ -198,6 +199,11 @@ export default function SalesPage() {
         notes: form.notes.trim() || null,
         updated_at: new Date().toISOString(),
       }).eq('id', editingSale.id)
+      logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'sale', editingSale.invoice_number, diffDetails(
+        { date: editingSale.date, total: editingSale.total_amount, delivery: editingSale.delivery_status },
+        { date: form.date, total: totalAmount, delivery: form.delivery_status },
+        { date: 'Date', total: 'Total', delivery: 'Delivery status' },
+      ) || (editingSale.invoice_number + ' (no changes)'))
 
       // Add new total to new retailer (re-fetch balance in case it's the same retailer)
       const { data: freshRetailer } = await supabase
@@ -223,6 +229,7 @@ export default function SalesPage() {
         notes: form.notes.trim() || null,
         created_by: profile?.id,
       })
+      logAudit({ id: profile?.id, email: profile?.email }, 'create', 'sale', form.invoice_number, 'Created sale ' + form.invoice_number + ' (' + totalAmount.toFixed(2) + ')')
 
       // Add total to retailer balance
       const retailer = retailers.find(r => r.id === form.retailer_id)
@@ -261,6 +268,7 @@ export default function SalesPage() {
       }).eq('id', showDelete.retailer_id)
     }
 
+    logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'sale', showDelete.invoice_number, 'Deleted sale ' + showDelete.invoice_number + ' (' + showDelete.total_amount.toFixed(2) + ')')
     await supabase.from('sales').delete().eq('id', showDelete.id)
     setDeleting(false)
     setShowDelete(null)

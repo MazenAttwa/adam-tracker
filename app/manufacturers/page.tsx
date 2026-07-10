@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
+import { logAudit, diffDetails } from '@/lib/audit'
 import { useLang } from '@/contexts/LanguageContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/Button'
@@ -103,8 +104,13 @@ export default function ManufacturersPage() {
 
     if (editing) {
       await supabase.from('manufacturers').update(payload).eq('id', editing.id)
+      logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'manufacturer', payload.name, diffDetails(
+        { name: editing.name, phone: editing.phone ?? '', address: editing.address ?? '', speciality: editing.speciality ?? '', notes: editing.notes ?? '' },
+        payload, { name: 'Name', phone: 'Phone', address: 'Address', speciality: 'Speciality', notes: 'Notes' },
+      ) || (payload.name + ' (no changes)'))
     } else {
       await supabase.from('manufacturers').insert({ ...payload, created_by: profile?.id })
+      logAudit({ id: profile?.id, email: profile?.email }, 'create', 'manufacturer', payload.name, 'Created manufacturer "' + payload.name + '"')
     }
 
     setSaving(false)
@@ -121,6 +127,7 @@ export default function ManufacturersPage() {
     if (!deleteTarget) return
     setDeleting(true)
     await supabase.from('manufacturers').delete().eq('id', deleteTarget.id)
+    logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'manufacturer', deleteTarget.name, 'Deleted manufacturer "' + deleteTarget.name + '"')
     setDeleting(false)
     setShowDelete(false)
     setDeleteTarget(null)

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
+import { logAudit, diffDetails } from '@/lib/audit'
 import { useLang } from '@/contexts/LanguageContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { BrandName } from '@/components/layout/BrandName'
@@ -93,9 +94,15 @@ export default function RetailersPage() {
     if (editingRetailer) {
       const { error } = await supabase.from('retailers').update(payload).eq('id', editingRetailer.id)
       if (error) { setFormError(error.message); setSaving(false); return }
+      logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'retailer', payload.name, diffDetails(
+        { name: editingRetailer.name, phone: editingRetailer.phone ?? '', type: editingRetailer.type, address: editingRetailer.address ?? '', notes: editingRetailer.notes ?? '' },
+        { name: payload.name, phone: payload.phone, type: payload.type, address: payload.address, notes: payload.notes },
+        { name: 'Name', phone: 'Phone', type: 'Type', address: 'Address', notes: 'Notes' },
+      ) || (payload.name + ' (no changes)'))
     } else {
       const { error } = await supabase.from('retailers').insert({ ...payload, balance: 0, created_by: profile?.id })
       if (error) { setFormError(error.message); setSaving(false); return }
+      logAudit({ id: profile?.id, email: profile?.email }, 'create', 'retailer', payload.name, 'Created retailer "' + payload.name + '"')
     }
     setSaving(false)
     setShowForm(false)
@@ -106,6 +113,7 @@ export default function RetailersPage() {
     if (!showDelete) return
     setDeleting(true)
     await supabase.from('retailers').delete().eq('id', showDelete.id)
+    logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'retailer', showDelete.name, 'Deleted retailer "' + showDelete.name + '"')
     setDeleting(false)
     setShowDelete(null)
     fetchRetailers()

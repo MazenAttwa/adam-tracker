@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
+import { logAudit, diffDetails } from '@/lib/audit'
 import { useLang } from '@/contexts/LanguageContext'
 import { useToast } from '@/contexts/ToastContext'
 import { Navbar } from '@/components/layout/Navbar'
@@ -273,6 +274,15 @@ export default function FinancePage() {
       : await supabase.from('expenses').insert({ ...payload, created_by: profile?.id })
 
     if (error) { setExpError(error.message); setExpSaving(false); return }
+    if (editingExp) {
+      logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'expense', payload.description, diffDetails(
+        { date: editingExp.date, category: editingExp.category, amount: editingExp.amount, description: editingExp.description },
+        { date: payload.date, category: payload.category, amount: payload.amount, description: payload.description },
+        { date: 'Date', category: 'Category', amount: 'Amount', description: 'Description' },
+      ) || (payload.description + ' (no changes)'))
+    } else {
+      logAudit({ id: profile?.id, email: profile?.email }, 'create', 'expense', payload.description, 'Added expense "' + payload.description + '" (' + payload.category + ', ' + payload.amount + ')')
+    }
 
     // Auto-create vendor transaction when a new expense is linked to a vendor
     if (!editingExp && expForm.vendor_id) {
@@ -299,6 +309,7 @@ export default function FinancePage() {
   async function handleDeleteExp() {
     if (!deleteExpTarget) return
     setDeletingExp(true)
+    logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'expense', deleteExpTarget.description, 'Deleted expense "' + deleteExpTarget.description + '" (' + deleteExpTarget.amount + ')')
     await supabase.from('expenses').delete().eq('id', deleteExpTarget.id)
     setDeletingExp(false); setDeleteExpTarget(null); fetchAll()
   }
@@ -335,6 +346,15 @@ export default function FinancePage() {
       : await supabase.from('revenue').insert({ ...payload, created_by: profile?.id })
 
     if (error) { setRevError(error.message); setRevSaving(false); return }
+    if (editingRev) {
+      logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'revenue', payload.description, diffDetails(
+        { date: editingRev.date, type: editingRev.type, amount: editingRev.amount, description: editingRev.description },
+        { date: payload.date, type: payload.type, amount: payload.amount, description: payload.description },
+        { date: 'Date', type: 'Type', amount: 'Amount', description: 'Description' },
+      ) || (payload.description + ' (no changes)'))
+    } else {
+      logAudit({ id: profile?.id, email: profile?.email }, 'create', 'revenue', payload.description, 'Added revenue "' + payload.description + '" (' + payload.type + ', ' + payload.amount + ')')
+    }
     showToast(tr.savedOk)
     setRevSaving(false); setShowRevForm(false); fetchAll()
   }
@@ -342,6 +362,7 @@ export default function FinancePage() {
   async function handleDeleteRev() {
     if (!deleteRevTarget) return
     setDeletingRev(true)
+    logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'revenue', deleteRevTarget.description, 'Deleted revenue "' + deleteRevTarget.description + '" (' + deleteRevTarget.amount + ')')
     await supabase.from('revenue').delete().eq('id', deleteRevTarget.id)
     setDeletingRev(false); setDeleteRevTarget(null); fetchAll()
   }
