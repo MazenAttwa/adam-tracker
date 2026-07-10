@@ -917,8 +917,8 @@ export default function ReportsPage() {
                   </tr></thead>
                   <tbody>
                     {mfrSpendRows.map((r, i) => (
-                      <tr key={i} className="border-b border-gray-50">
-                        <td className="px-5 py-3 font-medium text-[#0f1b35]">{r.name}</td>
+                      <tr key={i} onClick={() => router.push('/manufacturers?open=' + encodeURIComponent(r.name))} className="border-b border-gray-50 cursor-pointer hover:bg-[#c9a84c]/5 transition-colors">
+                        <td className="px-5 py-3 font-medium text-[#0f1b35]">{r.name} <span className="text-[#c9a84c]">&rarr;</span></td>
                         <td className="px-5 py-3 text-right tabular-nums">{money(r.spend)}</td>
                       </tr>
                     ))}

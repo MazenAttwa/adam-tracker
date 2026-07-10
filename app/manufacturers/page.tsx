@@ -58,6 +58,17 @@ export default function ManufacturersPage() {
   const [paySaving, setPaySaving] = useState(false)
   const [payError, setPayError] = useState('')
 
+  // Auto-open a manufacturer's account when arriving from the Reports link (?open=Name)
+  useEffect(() => {
+    if (typeof window === 'undefined' || manufacturers.length === 0) return
+    const open = new URLSearchParams(window.location.search).get('open')
+    if (!open) return
+    const target = decodeURIComponent(open).toLowerCase().trim()
+    const m = manufacturers.find(x => x.name.toLowerCase().trim() === target)
+    if (m) openDetail(m)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manufacturers])
+
   useEffect(() => {
     if (loading) return
     if (!profile) { router.push('/login'); return }
