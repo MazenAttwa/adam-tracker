@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal, ConfirmModal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
+import { printAccountStatement } from '@/lib/accountPdf'
 import type { Vendor, VendorCategory, VendorTransaction, VendorTransactionType } from '@/lib/types'
 
 const CATEGORIES: VendorCategory[] = ['fabric', 'printing', 'accessories', 'other']
@@ -205,6 +206,36 @@ export default function VendorsPage() {
   const vendorTxs = txVendor
     ? transactions.filter(t => t.vendor_id === txVendor.id)
     : []
+
+  const vendorStmt = (() => {
+    if (!txVendor) return { rows: [] as (VendorTransaction & { running: number })[], owed: 0, paid: 0, remaining: 0, ageDays: 0 }
+    const txs = transactions.filter(t => t.vendor_id === txVendor.id).slice().sort((a, b) => a.created_at.localeCompare(b.created_at))
+    let running = 0
+    const rows = txs.map(t => { running += t.type === 'purchase' ? t.amount : -t.amount; return { ...t, running } })
+    const owed = txs.filter(t => t.type === 'purchase').reduce((s, t) => s + t.amount, 0)
+    const paid = txs.filter(t => t.type === 'payment').reduce((s, t) => s + t.amount, 0)
+    const remaining = owed - paid
+    const oldestPurchase = txs.find(t => t.type === 'purchase')
+    const ageDays = remaining > 0.005 && oldestPurchase ? Math.floor((Date.now() - new Date(oldestPurchase.created_at).getTime()) / 86400000) : 0
+    return { rows, owed, paid, remaining, ageDays }
+  })()
+
+  const fmt = (n: number) => n.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  function printVendorStatement() {
+    if (!txVendor) return
+    printAccountStatement({
+      heading: 'Vendor Account', partyName: txVendor.name, partyPhone: txVendor.phone ?? undefined,
+      owedLabel: tr.totalOwed, paidLabel: tr.totalPaid, remainingLabel: tr.remaining,
+      owed: vendorStmt.owed, paid: vendorStmt.paid, remaining: vendorStmt.remaining,
+      debitLabel: tr.purchase, creditLabel: tr.payment, balanceLabel: tr.balance,
+      dateLabel: tr.createdAt, descriptionLabel: tr.notes, statementLabel: tr.statement,
+      rows: vendorStmt.rows.map(r => ({
+        date: formatDate(r.created_at, lang), description: r.notes ?? '',
+        debit: r.type === 'purchase' ? r.amount : 0, credit: r.type === 'payment' ? r.amount : 0, running: r.running,
+      })),
+    })
+  }
 
   if (loading || fetching) {
     return (
@@ -437,13 +468,39 @@ export default function VendorsPage() {
         }
       >
         <div className="space-y-4">
-          {/* Balance summary */}
+          {/* Account summary */}
           {txVendor && (
-            <div className={`rounded-xl px-4 py-3 flex items-center justify-between ${txVendor.balance > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-green-50 border border-green-200'}`}>
-              <span className="text-sm font-medium text-gray-700">{tr.balance}</span>
-              <span className={`text-lg font-bold tabular-nums ${txVendor.balance > 0 ? 'text-amber-700' : 'text-green-700'}`}>
-                {txVendor.balance.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { minimumFractionDigits: 2 })}
-              </span>
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-gray-50 border border-gray-100 p-3 text-center">
+                  <p className="text-[11px] text-gray-500">{tr.totalOwed}</p>
+                  <p className="text-base font-bold text-[#0f1b35] tabular-nums">{fmt(vendorStmt.owed)}</p>
+                </div>
+                <div className="rounded-lg bg-green-50 border border-green-100 p-3 text-center">
+                  <p className="text-[11px] text-gray-500">{tr.totalPaid}</p>
+                  <p className="text-base font-bold text-green-700 tabular-nums">{fmt(vendorStmt.paid)}</p>
+                </div>
+                <div className={`rounded-lg border p-3 text-center ${vendorStmt.remaining > 0.005 ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
+                  <p className="text-[11px] text-gray-500">{tr.remaining}</p>
+                  <p className={`text-base font-bold tabular-nums ${vendorStmt.remaining > 0.005 ? 'text-red-600' : 'text-green-700'}`}>{fmt(vendorStmt.remaining)}</p>
+                </div>
+              </div>
+              {(() => {
+                const pct = vendorStmt.owed > 0 ? Math.min(100, Math.round((vendorStmt.paid / vendorStmt.owed) * 100)) : (vendorStmt.paid > 0 ? 100 : 0)
+                return (
+                  <div>
+                    <div className="h-3 rounded-full bg-gray-100 overflow-hidden"><div className="h-full bg-green-500" style={{ width: pct + '%' }} /></div>
+                    <div className="flex justify-between text-[11px] text-gray-500 mt-1">
+                      <span>{pct}%</span>
+                      {vendorStmt.ageDays > 0 && <span className="text-red-600">{tr.aging}: {vendorStmt.ageDays} {tr.daysOverdue}</span>}
+                    </div>
+                  </div>
+                )
+              })()}
+              <button onClick={printVendorStatement} className="w-full flex items-center justify-center gap-2 rounded-lg border border-[#0f1b35] text-[#0f1b35] hover:bg-[#0f1b35] hover:text-white transition-colors py-2 text-sm font-medium">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+                {tr.printPdf}
+              </button>
             </div>
           )}
 
@@ -477,10 +534,11 @@ export default function VendorsPage() {
                     <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.transactionType}</th>
                     <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.amount}</th>
                     <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.notes}</th>
+                    <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.balance}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {vendorTxs.map(tx => (
+                  {vendorStmt.rows.map(tx => (
                     <tr key={tx.id} className="border-b border-gray-50 last:border-0">
                       <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap">{formatDate(tx.created_at, lang)}</td>
                       <td className="px-4 py-2.5">
@@ -498,6 +556,7 @@ export default function VendorsPage() {
                       <td className="px-4 py-2.5 text-gray-500 max-w-[160px]">
                         <span className="truncate block">{tx.notes ?? '—'}</span>
                       </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-[#0f1b35]">{fmt(tx.running)}</td>
                     </tr>
                   ))}
                 </tbody>
