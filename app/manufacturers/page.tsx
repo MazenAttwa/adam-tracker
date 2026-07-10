@@ -28,6 +28,9 @@ const EMPTY_FORM = {
   notes: '',
 }
 
+interface MfrWork { orderId: string; orderNumber: string; stage: string; qty: number; cost: number; date: string }
+interface MfrPayment { id: string; manufacturer_id: string; amount: number; date: string; notes: string | null }
+
 export default function ManufacturersPage() {
   const { profile, loading } = useAuth()
   const { tr } = useLang()
@@ -48,6 +51,12 @@ export default function ManufacturersPage() {
   const [showDelete, setShowDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Manufacturer | null>(null)
+  const [costsByName, setCostsByName] = useState<Record<string, MfrWork[]>>({})
+  const [payments, setPayments] = useState<MfrPayment[]>([])
+  const [detailMfr, setDetailMfr] = useState<Manufacturer | null>(null)
+  const [payForm, setPayForm] = useState({ amount: '', date: new Date().toISOString().slice(0, 10), notes: '' })
+  const [paySaving, setPaySaving] = useState(false)
+  const [payError, setPayError] = useState('')
 
   useEffect(() => {
     if (loading) return
@@ -63,6 +72,73 @@ export default function ManufacturersPage() {
       .order('name')
     setManufacturers((data ?? []) as Manufacturer[])
     setFetching(false)
+    fetchAccounts()
+  }
+
+  async function fetchAccounts() {
+    const [{ data: ordersD }, { data: sdD }, { data: paysD }] = await Promise.all([
+      supabase.from('orders').select('id, order_number, created_at'),
+      supabase.from('stage_data').select('order_id, stage, data'),
+      supabase.from('manufacturer_payments').select('*'),
+    ])
+    const orderMap = new Map<string, { order_number: string; created_at: string }>()
+    ;((ordersD ?? []) as { id: string; order_number: string; created_at: string }[]).forEach(o => orderMap.set(o.id, { order_number: o.order_number, created_at: o.created_at }))
+    const byName: Record<string, MfrWork[]> = {}
+    const add = (name: string, w: MfrWork) => {
+      const key = name.toLowerCase().trim()
+      if (!key) return
+      ;(byName[key] = byName[key] ?? []).push(w)
+    }
+    ;((sdD ?? []) as { order_id: string; stage: string; data: Record<string, unknown> }[]).forEach(r => {
+      const o = orderMap.get(r.order_id)
+      const on = o?.order_number ?? '?'
+      const date = (o?.created_at ?? '').slice(0, 10)
+      const d = r.data ?? {}
+      if (r.stage === 'cutting' || r.stage === 'printing') {
+        const name = typeof d['manufacturer_name'] === 'string' ? (d['manufacturer_name'] as string) : ''
+        const cost = r.stage === 'cutting' ? Number(d['total_cutting_cost'] ?? 0) : Number(d['total_printing_cost'] ?? 0)
+        const qty = r.stage === 'cutting' ? Number(d['quantity_to_cut'] ?? 0) : Number(d['quantity_to_print'] ?? 0)
+        if (name && cost > 0) add(name, { orderId: r.order_id, orderNumber: on, stage: r.stage, qty, cost, date })
+      }
+      if (r.stage === 'finishing' && Array.isArray(d['manufacturers'])) {
+        ;(d['manufacturers'] as { manufacturer_name?: string; quantity?: number; subtotal?: number }[]).forEach(m => {
+          if (m.manufacturer_name && (m.subtotal ?? 0) > 0) add(m.manufacturer_name, { orderId: r.order_id, orderNumber: on, stage: 'finishing', qty: m.quantity ?? 0, cost: m.subtotal ?? 0, date })
+        })
+      }
+    })
+    setCostsByName(byName)
+    setPayments((paysD ?? []) as MfrPayment[])
+  }
+
+  function accountFor(m: Manufacturer) {
+    const works = (costsByName[m.name.toLowerCase().trim()] ?? []).slice().sort((a, b) => (a.date < b.date ? 1 : -1))
+    const owed = works.reduce((s, w) => s + w.cost, 0)
+    const mPays = payments.filter(p => p.manufacturer_id === m.id).slice().sort((a, b) => (a.date < b.date ? 1 : -1))
+    const paid = mPays.reduce((s, p) => s + p.amount, 0)
+    return { works, owed, mPays, paid, remaining: owed - paid }
+  }
+
+  function openDetail(m: Manufacturer) {
+    setDetailMfr(m)
+    setPayForm({ amount: '', date: new Date().toISOString().slice(0, 10), notes: '' })
+    setPayError('')
+  }
+
+  async function savePayment() {
+    if (!detailMfr) return
+    setPayError('')
+    const amt = parseFloat(payForm.amount)
+    if (!amt || amt <= 0) { setPayError(tr.required); return }
+    setPaySaving(true)
+    const { error } = await supabase.from('manufacturer_payments').insert({
+      manufacturer_id: detailMfr.id, amount: amt, date: payForm.date,
+      notes: payForm.notes.trim() || null, created_by: profile?.id,
+    })
+    if (error) { setPayError(error.message); setPaySaving(false); return }
+    logAudit({ id: profile?.id, email: profile?.email }, 'buy', 'manufacturer', detailMfr.name, 'Paid ' + amt.toFixed(2) + ' to "' + detailMfr.name + '"')
+    setPayForm({ amount: '', date: new Date().toISOString().slice(0, 10), notes: '' })
+    setPaySaving(false)
+    fetchAccounts()
   }
 
   function setF(key: string, val: string) {
@@ -230,6 +306,19 @@ export default function ManufacturersPage() {
                   <p className="text-xs text-gray-400 mb-3 line-clamp-2">{m.notes}</p>
                 )}
 
+                {(() => {
+                  const a = accountFor(m)
+                  const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  return (
+                    <div className="mb-3 rounded-lg bg-gray-50 border border-gray-100 p-2.5 text-xs space-y-1">
+                      <div className="flex justify-between"><span className="text-gray-500">{tr.totalOwed}</span><span className="font-semibold text-[#0f1b35] tabular-nums">{fmt(a.owed)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-500">{tr.totalPaid}</span><span className="font-semibold text-green-700 tabular-nums">{fmt(a.paid)}</span></div>
+                      <div className="flex justify-between border-t border-gray-200 pt-1"><span className="text-gray-500">{tr.remaining}</span><span className={`font-bold tabular-nums ${a.remaining > 0.005 ? 'text-red-600' : 'text-green-700'}`}>{fmt(a.remaining)}</span></div>
+                      <button onClick={() => openDetail(m)} className="w-full mt-1 text-center text-[#c9a84c] font-medium hover:underline">{tr.viewAccount} →</button>
+                    </div>
+                  )
+                })()}
+
                 {profile?.role === 'manager' && (
                   <div className="flex gap-2 pt-3 border-t border-gray-50">
                     <button
@@ -303,6 +392,95 @@ export default function ManufacturersPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Manufacturer Account Detail */}
+      <Modal open={!!detailMfr} onClose={() => setDetailMfr(null)} title={detailMfr ? detailMfr.name + ' \u2014 ' + tr.manufacturerAccount : ''}>
+        {detailMfr && (() => {
+          const a = accountFor(detailMfr)
+          const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-gray-50 border border-gray-100 p-3 text-center">
+                  <p className="text-[11px] text-gray-500">{tr.totalOwed}</p>
+                  <p className="text-base font-bold text-[#0f1b35] tabular-nums">{fmt(a.owed)}</p>
+                </div>
+                <div className="rounded-lg bg-green-50 border border-green-100 p-3 text-center">
+                  <p className="text-[11px] text-gray-500">{tr.totalPaid}</p>
+                  <p className="text-base font-bold text-green-700 tabular-nums">{fmt(a.paid)}</p>
+                </div>
+                <div className={`rounded-lg border p-3 text-center ${a.remaining > 0.005 ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
+                  <p className="text-[11px] text-gray-500">{tr.remaining}</p>
+                  <p className={`text-base font-bold tabular-nums ${a.remaining > 0.005 ? 'text-red-600' : 'text-green-700'}`}>{fmt(a.remaining)}</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-[#0f1b35] mb-2">{tr.workDone}</h3>
+                <div className="rounded-lg border border-gray-100 overflow-x-auto max-h-56 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium text-gray-500">{tr.orders}</th>
+                        <th className="text-left px-3 py-2 font-medium text-gray-500">{tr.stage}</th>
+                        <th className="text-right px-3 py-2 font-medium text-gray-500">{tr.quantity}</th>
+                        <th className="text-right px-3 py-2 font-medium text-gray-500">{tr.cost}</th>
+                        <th className="text-left px-3 py-2 font-medium text-gray-500">{tr.date}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {a.works.length === 0 && (
+                        <tr><td colSpan={5} className="px-3 py-4 text-center text-gray-400">—</td></tr>
+                      )}
+                      {a.works.map((w, i) => (
+                        <tr key={i} className="border-t border-gray-50">
+                          <td className="px-3 py-2 font-medium text-[#0f1b35]">{w.orderNumber}</td>
+                          <td className="px-3 py-2 text-gray-600 capitalize">{w.stage}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{w.qty}</td>
+                          <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(w.cost)}</td>
+                          <td className="px-3 py-2 text-gray-500">{w.date}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-[#0f1b35] mb-2">{tr.paymentHistory}</h3>
+                {a.mPays.length === 0 ? (
+                  <p className="text-xs text-gray-400">{tr.noPayments}</p>
+                ) : (
+                  <div className="rounded-lg border border-gray-100 divide-y divide-gray-50 max-h-40 overflow-y-auto">
+                    {a.mPays.map(p => (
+                      <div key={p.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                        <div>
+                          <span className="font-medium text-green-700 tabular-nums">{fmt(p.amount)}</span>
+                          {p.notes && <span className="text-gray-400 ml-2">{p.notes}</span>}
+                        </div>
+                        <span className="text-gray-500">{p.date}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {profile?.role === 'manager' && (
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
+                  <h3 className="text-sm font-semibold text-[#0f1b35]">{tr.recordPayment}</h3>
+                  {payError && <p className="text-xs text-red-600">{payError}</p>}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input label={tr.paidAmount} type="number" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} />
+                    <Input label={tr.paymentDate} type="date" value={payForm.date} onChange={e => setPayForm(p => ({ ...p, date: e.target.value }))} />
+                  </div>
+                  <Input label={tr.manufacturerNotes} value={payForm.notes} onChange={e => setPayForm(p => ({ ...p, notes: e.target.value }))} />
+                  <Button onClick={savePayment} loading={paySaving} className="w-full">{tr.recordPayment}</Button>
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </Modal>
 
       {/* Delete Modal */}
