@@ -78,6 +78,7 @@ export default function MaterialsPage() {
   const [reorderReceipt, setReorderReceipt] = useState<File | null>(null)
   const [reorderDate, setReorderDate] = useState('')
   const [stockMap, setStockMap] = useState<Record<string, number>>({})
+  const [purchasedMap, setPurchasedMap] = useState<Record<string, number>>({})
   const [historyMaterial, setHistoryMaterial] = useState<Material | null>(null)
 
   useEffect(() => {
@@ -100,10 +101,13 @@ export default function MaterialsPage() {
       .from('stock_movements')
       .select('material_id, type, quantity')
     const sm: Record<string, number> = {}
+    const pm: Record<string, number> = {}
     for (const r of (mv ?? []) as Array<{ material_id: string; type: string; quantity: number }>) {
       sm[r.material_id] = (sm[r.material_id] ?? 0) + (r.type === 'in' ? r.quantity : -r.quantity)
+      if (r.type === 'in') pm[r.material_id] = (pm[r.material_id] ?? 0) + r.quantity
     }
     setStockMap(sm)
+    setPurchasedMap(pm)
     if (list.length > 0) {
       await fetchPhotoMap(list.map(m => m.id))
     }
@@ -167,7 +171,7 @@ export default function MaterialsPage() {
     }
     setEditVendorId(vid)
     setBillVendor(false)
-    setBillAmount(String(((stockMap[m.id] ?? m.current_quantity) * (m.cost_per_unit || 0)).toFixed(2)))
+    setBillAmount(String(((purchasedMap[m.id] ?? stockMap[m.id] ?? m.current_quantity) * (m.cost_per_unit || 0)).toFixed(2)))
     setEditing(m)
     setForm({
       name: m.name,
@@ -253,7 +257,7 @@ export default function MaterialsPage() {
             vendor_id: editVendorId,
             type: 'purchase',
             amount,
-            notes: payload.name + ' \u2014 ' + (stockMap[editing.id] ?? 0) + ' ' + payload.unit + ' @ ' + (payload.cost_per_unit || 0) + '/' + payload.unit,
+            notes: payload.name + ' \u2014 ' + (purchasedMap[editing.id] ?? stockMap[editing.id] ?? 0) + ' ' + payload.unit + ' @ ' + (payload.cost_per_unit || 0) + '/' + payload.unit,
             created_by: profile?.id,
           })
           await supabase.from('vendors').update({

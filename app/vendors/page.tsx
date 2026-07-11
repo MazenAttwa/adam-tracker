@@ -237,6 +237,18 @@ export default function VendorsPage() {
 
   const fmt = (n: number) => n.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+  async function deleteTx(tx: VendorTransaction) {
+    if (!txVendor) return
+    await supabase.from('vendor_transactions').delete().eq('id', tx.id)
+    // Reverse its effect on the balance: purchase added debt, payment reduced it
+    const delta = tx.type === 'purchase' ? -tx.amount : tx.amount
+    const newBalance = Math.max(0, txVendor.balance + delta)
+    await supabase.from('vendors').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('id', txVendor.id)
+    logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'vendor', txVendor.name, 'Deleted a ' + tx.type + ' of ' + tx.amount.toFixed(2) + ' for "' + txVendor.name + '"')
+    setTxVendor(prev => (prev ? { ...prev, balance: newBalance } : prev))
+    await fetchAll()
+  }
+
   function printVendorStatement() {
     if (!txVendor) return
     printAccountStatement({
@@ -580,6 +592,7 @@ export default function VendorsPage() {
                     <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.amount}</th>
                     <th className="text-left px-4 py-2.5 font-medium text-gray-600">{tr.notes}</th>
                     <th className="text-right px-4 py-2.5 font-medium text-gray-600">{tr.balance}</th>
+                    {profile?.role === 'manager' && <th className="px-3 py-2.5"></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -602,6 +615,13 @@ export default function VendorsPage() {
                         <span className="block whitespace-normal break-words">{tx.notes ?? '—'}</span>
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-[#0f1b35]">{fmt(tx.running)}</td>
+                      {profile?.role === 'manager' && (
+                        <td className="px-3 py-2.5 text-right">
+                          <button onClick={() => deleteTx(tx)} className="text-red-400 hover:text-red-600" title={tr.delete}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
