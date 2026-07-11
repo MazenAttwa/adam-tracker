@@ -63,6 +63,8 @@ export default function MaterialsPage() {
   const [pendingVendorId, setPendingVendorId] = useState('')
   const [editVendorId, setEditVendorId] = useState('')
   const [editVendorLinked, setEditVendorLinked] = useState(false)
+  const [billVendor, setBillVendor] = useState(false)
+  const [billAmount, setBillAmount] = useState('')
   const [pendingPurchaseDate, setPendingPurchaseDate] = useState(new Date().toISOString().slice(0, 10))
   const photoInputRef = useRef<HTMLInputElement>(null)
 
@@ -164,6 +166,8 @@ export default function MaterialsPage() {
       vid = ((mv ?? []) as { vendor_id: string | null }[])[0]?.vendor_id ?? ''
     }
     setEditVendorId(vid)
+    setBillVendor(false)
+    setBillAmount(String(((stockMap[m.id] ?? m.current_quantity) * (m.cost_per_unit || 0)).toFixed(2)))
     setEditing(m)
     setForm({
       name: m.name,
@@ -226,38 +230,30 @@ export default function MaterialsPage() {
           created_by: profile?.id,
         })
       }
-      // Link this material's purchases to the chosen supplier and record what we owe them.
-      // firstLink = this material had no supplier before, so we only ever bill the opening stock once.
-      const firstLink = !editing.vendor_id && !!editVendorId
+      // Tag this material's purchase movements with the chosen supplier (bookkeeping only).
       if (editVendorId) {
         const { data: untagged } = await supabase
           .from('stock_movements')
-          .select('id, quantity, total_cost')
+          .select('id')
           .eq('material_id', editing.id)
           .eq('type', 'in')
           .is('vendor_id', null)
-        const rows = (untagged ?? []) as { id: string; quantity: number; total_cost: number | null }[]
-        const costed = rows.filter(r => r.total_cost != null && r.total_cost > 0)
-
+        const rows = (untagged ?? []) as { id: string }[]
         if (rows.length > 0) {
           await supabase.from('stock_movements').update({ vendor_id: editVendorId }).in('id', rows.map(r => r.id))
         }
+      }
 
-        // Amount owed: use recorded purchase costs when we have them.
-        let amount = costed.reduce((s, r) => s + (r.total_cost ?? 0), 0)
-        // Otherwise (old stock with no recorded cost), value the stock at the material's cost/unit — once.
-        if (amount <= 0 && firstLink) {
-          const qty = stockMap[editing.id] ?? 0
-          amount = qty * (payload.cost_per_unit || 0)
-        }
-
+      // Bill the vendor ONLY when explicitly requested (you control the amount) — never automatic.
+      if (editVendorId && billVendor) {
+        const amount = parseFloat(billAmount) || 0
         const vendor = vendors.find(v => v.id === editVendorId)
-        if (vendor && amount > 0 && (costed.length > 0 || firstLink)) {
+        if (vendor && amount > 0) {
           await supabase.from('vendor_transactions').insert({
             vendor_id: editVendorId,
             type: 'purchase',
             amount,
-            notes: 'Purchase: ' + payload.name + ' (linked to supplier)',
+            notes: 'Purchase: ' + payload.name,
             created_by: profile?.id,
           })
           await supabase.from('vendors').update({
@@ -683,9 +679,30 @@ export default function MaterialsPage() {
                   <option key={v.id} value={v.id}>{v.name}</option>
                 ))}
               </Select>
-              <p className="text-xs text-gray-400 mt-1">
-                {editVendorLinked ? tr.vendorAlreadyLinked : tr.linkVendorHint}
-              </p>
+              {editVendorId && (
+                <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-2">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={billVendor}
+                      onChange={e => setBillVendor(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#0f1b35] focus:ring-[#c9a84c]"
+                    />
+                    <span className="text-sm text-[#0f1b35]">{tr.recordAsOwed}</span>
+                  </label>
+                  {billVendor && (
+                    <Input
+                      label={tr.amount}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={billAmount}
+                      onChange={e => setBillAmount(e.target.value)}
+                    />
+                  )}
+                  <p className="text-xs text-gray-400">{tr.recordAsOwedHint}</p>
+                </div>
+              )}
             </div>
           )}
 
