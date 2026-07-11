@@ -11,7 +11,12 @@ import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
+import { printAccountStatement } from '@/lib/accountPdf'
 import type { Retailer, RetailerType, Sale } from '@/lib/types'
+
+type RetSale = { id: string; retailer_id: string | null; date: string; total_amount: number; invoice_number: string }
+type RetPayment = { id: string; retailer_id: string; amount: number; date: string; notes: string | null }
+type StmtEntry = { id: string; date: string; desc: string; debit: number; credit: number; running: number }
 
 interface RetailerForm {
   name: string
@@ -32,7 +37,12 @@ export default function RetailersPage() {
   const supabase = createClient()
 
   const [retailers, setRetailers] = useState<Retailer[]>([])
-  const [sales, setSales] = useState<Pick<Sale, 'retailer_id' | 'date'>[]>([])
+  const [sales, setSales] = useState<RetSale[]>([])
+  const [payments, setPayments] = useState<RetPayment[]>([])
+  const [accountRetailer, setAccountRetailer] = useState<Retailer | null>(null)
+  const [payForm, setPayForm] = useState({ amount: '', date: new Date().toISOString().slice(0, 10), notes: '' })
+  const [paySaving, setPaySaving] = useState(false)
+  const [payError, setPayError] = useState('')
   const [fetching, setFetching] = useState(true)
   const [tab, setTab] = useState<'retailers' | 'aging'>('retailers')
   const [search, setSearch] = useState('')
@@ -49,7 +59,7 @@ export default function RetailersPage() {
     if (loading) return
     if (!profile) { router.push('/login'); return }
     if (profile.role !== 'manager') { router.push('/dashboard'); return }
-    Promise.all([fetchRetailers(), fetchSales()]).finally(() => setFetching(false))
+    Promise.all([fetchRetailers(), fetchSales(), fetchPayments()]).finally(() => setFetching(false))
   }, [profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchRetailers() {
@@ -58,8 +68,79 @@ export default function RetailersPage() {
   }
 
   async function fetchSales() {
-    const { data } = await supabase.from('sales').select('retailer_id, date').order('date')
-    setSales(data ?? [])
+    const { data } = await supabase.from('sales').select('id, retailer_id, date, total_amount, invoice_number').order('date')
+    setSales((data ?? []) as RetSale[])
+  }
+
+  async function fetchPayments() {
+    const { data } = await supabase.from('retailer_payments').select('*')
+    setPayments((data ?? []) as RetPayment[])
+  }
+
+  const fmt = (n: number) => n.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  function retailerStatement(r: Retailer) {
+    const rSales = sales.filter(s => s.retailer_id === r.id).map(s => ({ id: 's-' + s.id, date: s.date, desc: s.invoice_number, debit: s.total_amount || 0, credit: 0 }))
+    const rPays = payments.filter(p => p.retailer_id === r.id).map(p => ({ id: 'p-' + p.id, date: p.date, desc: p.notes ?? '', debit: 0, credit: p.amount || 0 }))
+    const merged = [...rSales, ...rPays].sort((a, b) => a.date.localeCompare(b.date))
+    let running = 0
+    const rows: StmtEntry[] = merged.map(e => { running += e.debit - e.credit; return { ...e, running } })
+    const owed = rSales.reduce((s, e) => s + e.debit, 0)
+    const received = rPays.reduce((s, e) => s + e.credit, 0)
+    const remaining = owed - received
+    const oldestSale = rSales.slice().sort((a, b) => a.date.localeCompare(b.date))[0]
+    const ageDays = remaining > 0.005 && oldestSale ? Math.floor((Date.now() - new Date(oldestSale.date).getTime()) / 86400000) : 0
+    return { rows, owed, received, remaining, ageDays }
+  }
+
+  function openAccount(r: Retailer) {
+    setAccountRetailer(r)
+    setPayForm({ amount: '', date: new Date().toISOString().slice(0, 10), notes: '' })
+    setPayError('')
+  }
+
+  async function savePayment() {
+    if (!accountRetailer) return
+    setPayError('')
+    const amt = parseFloat(payForm.amount)
+    if (!amt || amt <= 0) { setPayError(tr.required); return }
+    setPaySaving(true)
+    const { error } = await supabase.from('retailer_payments').insert({
+      retailer_id: accountRetailer.id, amount: amt, date: payForm.date, notes: payForm.notes.trim() || null, created_by: profile?.id,
+    })
+    if (error) { setPayError(error.message); setPaySaving(false); return }
+    const newBalance = Math.max(0, (accountRetailer.balance || 0) - amt)
+    await supabase.from('retailers').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('id', accountRetailer.id)
+    logAudit({ id: profile?.id, email: profile?.email }, 'buy', 'retailer', accountRetailer.name, 'Received ' + amt.toFixed(2) + ' from "' + accountRetailer.name + '"')
+    setPayForm({ amount: '', date: new Date().toISOString().slice(0, 10), notes: '' })
+    setPaySaving(false)
+    setAccountRetailer(prev => (prev ? { ...prev, balance: newBalance } : prev))
+    await Promise.all([fetchRetailers(), fetchPayments()])
+  }
+
+  async function deletePaymentR(payId: string) {
+    if (!accountRetailer) return
+    const pay = payments.find(p => p.id === payId)
+    await supabase.from('retailer_payments').delete().eq('id', payId)
+    if (pay) {
+      const newBalance = (accountRetailer.balance || 0) + pay.amount
+      await supabase.from('retailers').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('id', accountRetailer.id)
+      setAccountRetailer(prev => (prev ? { ...prev, balance: newBalance } : prev))
+    }
+    logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'retailer', accountRetailer.name, 'Removed a received payment for "' + accountRetailer.name + '"')
+    await Promise.all([fetchRetailers(), fetchPayments()])
+  }
+
+  function printRetailerStatement(r: Retailer) {
+    const a = retailerStatement(r)
+    printAccountStatement({
+      heading: 'Retailer Account', partyName: r.name, partyPhone: r.phone ?? undefined,
+      owedLabel: tr.totalOwed, paidLabel: tr.totalPaid, remainingLabel: tr.remaining,
+      owed: a.owed, paid: a.received, remaining: a.remaining,
+      debitLabel: tr.sales, creditLabel: tr.payment, balanceLabel: tr.balance,
+      dateLabel: tr.date, descriptionLabel: tr.description, statementLabel: tr.statement,
+      rows: a.rows.map(e => ({ date: formatDate(e.date, lang), description: e.desc, debit: e.debit, credit: e.credit, running: e.running })),
+    })
   }
 
   function set(k: keyof RetailerForm, v: string) {
@@ -263,6 +344,10 @@ export default function RetailersPage() {
                           <td className="px-5 py-3.5 text-gray-400 whitespace-nowrap">{formatDate(r.created_at, lang)}</td>
                           <td className="px-5 py-3.5">
                             <div className="flex items-center gap-2 justify-end">
+                              <button onClick={() => openAccount(r)}
+                                className="text-xs px-2.5 py-1 rounded-lg border border-[#c9a84c] text-[#c9a84c] hover:bg-[#c9a84c] hover:text-white transition-colors">
+                                {tr.viewAccount}
+                              </button>
                               <button onClick={() => openEdit(r)}
                                 className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:border-[#c9a84c] hover:text-[#c9a84c] transition-colors">
                                 {tr.edit}
@@ -345,6 +430,110 @@ export default function RetailersPage() {
           </div>
         )}
       </main>
+
+      {/* Retailer Account */}
+      <Modal open={!!accountRetailer} onClose={() => setAccountRetailer(null)} title={accountRetailer ? accountRetailer.name + ' \u2014 ' + tr.statement : ''}>
+        {accountRetailer && (() => {
+          const a = retailerStatement(accountRetailer)
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-gray-50 border border-gray-100 p-3 text-center">
+                  <p className="text-[11px] text-gray-500">{tr.totalOwed}</p>
+                  <p className="text-base font-bold text-[#0f1b35] tabular-nums">{fmt(a.owed)}</p>
+                </div>
+                <div className="rounded-lg bg-green-50 border border-green-100 p-3 text-center">
+                  <p className="text-[11px] text-gray-500">{tr.totalPaid}</p>
+                  <p className="text-base font-bold text-green-700 tabular-nums">{fmt(a.received)}</p>
+                </div>
+                <div className={`rounded-lg border p-3 text-center ${a.remaining > 0.005 ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
+                  <p className="text-[11px] text-gray-500">{tr.remaining}</p>
+                  <p className={`text-base font-bold tabular-nums ${a.remaining > 0.005 ? 'text-red-600' : 'text-green-700'}`}>{fmt(a.remaining)}</p>
+                </div>
+              </div>
+              {(() => {
+                const pct = a.owed > 0 ? Math.min(100, Math.round((a.received / a.owed) * 100)) : (a.received > 0 ? 100 : 0)
+                return (
+                  <div>
+                    <div className="h-3 rounded-full bg-gray-100 overflow-hidden"><div className="h-full bg-green-500" style={{ width: pct + '%' }} /></div>
+                    <div className="flex justify-between text-[11px] text-gray-500 mt-1">
+                      <span>{pct}%</span>
+                      {a.ageDays > 0 && <span className="text-red-600">{tr.aging}: {a.ageDays} {tr.daysOverdue}</span>}
+                    </div>
+                  </div>
+                )
+              })()}
+              <button onClick={() => printRetailerStatement(accountRetailer)} className="w-full flex items-center justify-center gap-2 rounded-lg border border-[#0f1b35] text-[#0f1b35] hover:bg-[#0f1b35] hover:text-white transition-colors py-2 text-sm font-medium">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+                {tr.printPdf}
+              </button>
+
+              <div>
+                <h3 className="text-sm font-semibold text-[#0f1b35] mb-2">{tr.statement}</h3>
+                <div className="rounded-lg border border-gray-100 overflow-x-auto max-h-56 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium text-gray-500">{tr.date}</th>
+                        <th className="text-left px-3 py-2 font-medium text-gray-500">{tr.description}</th>
+                        <th className="text-right px-3 py-2 font-medium text-gray-500">{tr.sales}</th>
+                        <th className="text-right px-3 py-2 font-medium text-gray-500">{tr.payment}</th>
+                        <th className="text-right px-3 py-2 font-medium text-gray-500">{tr.balance}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {a.rows.length === 0 && (<tr><td colSpan={5} className="px-3 py-4 text-center text-gray-400">—</td></tr>)}
+                      {a.rows.map(e => (
+                        <tr key={e.id} className="border-t border-gray-50">
+                          <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{formatDate(e.date, lang)}</td>
+                          <td className="px-3 py-2 text-gray-600 max-w-[120px] truncate">{e.desc || '—'}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-red-600">{e.debit ? fmt(e.debit) : ''}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-green-700">{e.credit ? fmt(e.credit) : ''}</td>
+                          <td className="px-3 py-2 text-right tabular-nums font-semibold text-[#0f1b35]">{fmt(e.running)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-[#0f1b35] mb-2">{tr.paymentHistory}</h3>
+                {payments.filter(p => p.retailer_id === accountRetailer.id).length === 0 ? (
+                  <p className="text-xs text-gray-400">{tr.noPayments}</p>
+                ) : (
+                  <div className="rounded-lg border border-gray-100 divide-y divide-gray-50 max-h-40 overflow-y-auto">
+                    {payments.filter(p => p.retailer_id === accountRetailer.id).slice().sort((a2, b2) => b2.date.localeCompare(a2.date)).map(p => (
+                      <div key={p.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                        <div><span className="font-medium text-green-700 tabular-nums">{fmt(p.amount)}</span>{p.notes && <span className="text-gray-400 ml-2">{p.notes}</span>}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">{p.date}</span>
+                          <button onClick={() => deletePaymentR(p.id)} className="text-red-400 hover:text-red-600" title={tr.delete}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {profile?.role === 'manager' && (
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
+                  <h3 className="text-sm font-semibold text-[#0f1b35]">{tr.recordPayment}</h3>
+                  {payError && <p className="text-xs text-red-600">{payError}</p>}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input label={tr.paidAmount} type="number" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} />
+                    <Input label={tr.paymentDate} type="date" value={payForm.date} onChange={e => setPayForm(p => ({ ...p, date: e.target.value }))} />
+                  </div>
+                  <Input label={tr.notes} value={payForm.notes} onChange={e => setPayForm(p => ({ ...p, notes: e.target.value }))} />
+                  <Button onClick={savePayment} loading={paySaving} className="w-full">{tr.recordPayment}</Button>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+      </Modal>
 
       {/* Add/Edit modal */}
       <Modal
