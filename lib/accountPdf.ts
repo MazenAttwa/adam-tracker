@@ -9,7 +9,19 @@ export interface StatementRow {
   running: number
 }
 
+export interface StatementMaterial {
+  name: string
+  qty: number
+  unit: string
+  costPerUnit: number
+  total: number
+  photoUrl: string
+  last: string
+}
+
 export interface StatementOptions {
+  materials?: StatementMaterial[]
+  materialsLabel?: string
   heading: string          // e.g. "Vendor Account" / "Retailer Account"
   partyName: string
   partyPhone?: string
@@ -71,6 +83,8 @@ export function printAccountStatement(o: StatementOptions) {
     + 'td{padding:6px 8px;border-bottom:1px solid #f2f2f2;} td.r{text-align:right;}'
     + 'td.deb{color:#dc2626;} td.cre{color:#16a34a;} td.bal{font-weight:700;}'
     + 'td.empty{text-align:center;color:#999;padding:14px;}'
+    + 'td.ph{width:46px;} td.ph img{width:38px;height:38px;object-fit:cover;border-radius:5px;border:1px solid #eee;}'
+    + 'tr.tot td{background:#f5f5f0;}'
     + '.foot{margin-top:16px;text-align:center;color:#aaa;font-size:10px;}'
     + '</style></head><body>'
     + '<div class="head"><div class="brand">Adam Store<small>' + esc(o.heading) + '</small></div>'
@@ -82,6 +96,23 @@ export function printAccountStatement(o: StatementOptions) {
     + '</div>'
     + '<div class="bar-wrap"><div class="bar" style="width:' + pct + '%"></div></div>'
     + '<div class="bar-lab">' + pct + '%</div>'
+    + (o.materials && o.materials.length
+        ? '<h2>' + esc(o.materialsLabel ?? 'Materials Supplied') + '</h2>'
+          + '<table><thead><tr><th></th><th>Material</th><th class="r">Qty</th><th class="r">Cost/Unit</th><th class="r">Total</th><th>Last Purchase</th></tr></thead><tbody>'
+          + o.materials.map(m =>
+              '<tr>'
+              + '<td class="ph">' + (m.photoUrl ? '<img src="' + m.photoUrl + '" />' : '') + '</td>'
+              + '<td><b>' + esc(m.name) + '</b></td>'
+              + '<td class="r">' + m.qty.toLocaleString() + ' ' + esc(m.unit) + '</td>'
+              + '<td class="r">' + fmt(m.costPerUnit) + '</td>'
+              + '<td class="r deb"><b>' + fmt(m.total) + '</b></td>'
+              + '<td>' + esc(m.last) + '</td>'
+              + '</tr>'
+            ).join('')
+          + '<tr class="tot"><td colspan="4"><b>Total</b></td><td class="r deb"><b>'
+          + fmt(o.materials.reduce((s, m) => s + m.total, 0)) + '</b></td><td></td></tr>'
+          + '</tbody></table>'
+        : '')
     + '<h2>' + esc(o.statementLabel) + '</h2>'
     + '<table><thead><tr><th>' + esc(o.dateLabel) + '</th><th>' + esc(o.descriptionLabel) + '</th>'
     + '<th class="r">' + esc(o.debitLabel) + '</th><th class="r">' + esc(o.creditLabel) + '</th><th class="r">' + esc(o.balanceLabel) + '</th></tr></thead>'

@@ -26,6 +26,8 @@ interface TxForm {
 const emptyVendor: VendorForm = { name: '', phone: '', category: 'fabric', notes: '' }
 const emptyTx: TxForm = { type: 'purchase', amount: '', notes: '' }
 
+interface VendorMaterial { vendorId: string; id: string; name: string; unit: string; qty: number; costPerUnit: number; total: number; photoUrl: string; last: string }
+
 export default function VendorsPage() {
   const { profile, loading } = useAuth()
   const { tr, lang } = useLang()
@@ -35,6 +37,7 @@ export default function VendorsPage() {
   const [tab, setTab] = useState<'vendors' | 'aging'>('vendors')
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [transactions, setTransactions] = useState<VendorTransaction[]>([])
+  const [vendorMats, setVendorMats] = useState<VendorMaterial[]>([])
   const [fetching, setFetching] = useState(true)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('')
@@ -63,12 +66,43 @@ export default function VendorsPage() {
   }, [profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchAll() {
-    const [{ data: v }, { data: tx }] = await Promise.all([
+    const [{ data: v }, { data: tx }, { data: mats }, { data: moves }, { data: photos }] = await Promise.all([
       supabase.from('vendors').select('*').order('name'),
       supabase.from('vendor_transactions').select('*').order('created_at', { ascending: false }),
+      supabase.from('materials').select('id, name, unit, cost_per_unit, vendor_id'),
+      supabase.from('stock_movements').select('material_id, type, quantity, total_cost, purchase_date, created_at'),
+      supabase.from('material_photos').select('material_id, file_path'),
     ])
     setVendors(v ?? [])
     setTransactions(tx ?? [])
+
+    const photoMap = new Map<string, string>()
+    ;((photos ?? []) as { material_id: string; file_path: string }[]).forEach(ph => {
+      if (!photoMap.has(ph.material_id) && ph.file_path) {
+        photoMap.set(ph.material_id, supabase.storage.from('material-photos').getPublicUrl(ph.file_path).data.publicUrl)
+      }
+    })
+
+    const ins = ((moves ?? []) as { material_id: string; type: string; quantity: number; total_cost: number | null; purchase_date: string | null; created_at: string }[])
+      .filter(r => r.type === 'in')
+
+    const vm: VendorMaterial[] = ((mats ?? []) as { id: string; name: string; unit: string; cost_per_unit: number; vendor_id: string | null }[])
+      .filter(m => !!m.vendor_id)
+      .map(m => {
+        const rows = ins.filter(r => r.material_id === m.id)
+        const qty = rows.reduce((s, r) => s + (r.quantity || 0), 0)
+        const total = rows.reduce((s, r) => s + (r.total_cost ?? (r.quantity || 0) * (m.cost_per_unit || 0)), 0)
+        const last = rows.reduce((acc, r) => {
+          const d = (r.purchase_date ?? r.created_at ?? '').slice(0, 10)
+          return d > acc ? d : acc
+        }, '')
+        return {
+          vendorId: m.vendor_id as string, id: m.id, name: m.name, unit: m.unit,
+          qty, costPerUnit: m.cost_per_unit || 0, total, photoUrl: photoMap.get(m.id) ?? '', last,
+        }
+      })
+      .filter(x => x.qty > 0)
+    setVendorMats(vm)
     setFetching(false)
   }
 
@@ -257,6 +291,10 @@ export default function VendorsPage() {
       owed: vendorStmt.owed, paid: vendorStmt.paid, remaining: vendorStmt.remaining,
       debitLabel: tr.purchase, creditLabel: tr.payment, balanceLabel: tr.balance,
       dateLabel: tr.createdAt, descriptionLabel: tr.notes, statementLabel: tr.statement,
+      materialsLabel: tr.materialsSupplied,
+      materials: vendorMats.filter(m => m.vendorId === txVendor.id).map(m => ({
+        name: m.name, qty: m.qty, unit: m.unit, costPerUnit: m.costPerUnit, total: m.total, photoUrl: m.photoUrl, last: m.last,
+      })),
       rows: vendorStmt.rows.map(r => ({
         date: formatDate(r.created_at, lang), description: r.notes ?? '',
         debit: r.type === 'purchase' ? r.amount : 0, credit: r.type === 'payment' ? r.amount : 0, running: r.running,
@@ -575,6 +613,52 @@ export default function VendorsPage() {
               <div className="flex gap-2 pt-1">
                 <Button onClick={handleSaveTx} loading={txSaving}>{tr.save}</Button>
                 <Button variant="ghost" onClick={() => setShowAddTx(false)} disabled={txSaving}>{tr.cancel}</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Materials supplied by this vendor */}
+          {txVendor && vendorMats.filter(m => m.vendorId === txVendor.id).length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-[#0f1b35] mb-2 flex items-center gap-2">
+                <span className="w-1 h-4 bg-[#c9a84c] rounded-full" />{tr.materialsSupplied}
+              </h3>
+              <div className="rounded-xl border border-gray-100 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="px-3 py-2.5"></th>
+                      <th className="text-left px-3 py-2.5 font-medium text-gray-600">{tr.materialName}</th>
+                      <th className="text-right px-3 py-2.5 font-medium text-gray-600">{tr.quantity}</th>
+                      <th className="text-right px-3 py-2.5 font-medium text-gray-600">{tr.costPerUnit}</th>
+                      <th className="text-right px-3 py-2.5 font-medium text-gray-600">{tr.total}</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-gray-600">{tr.lastPurchase}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vendorMats.filter(m => m.vendorId === txVendor.id).map(m => (
+                      <tr key={m.id} className="border-b border-gray-50 last:border-0">
+                        <td className="px-3 py-2">
+                          {m.photoUrl
+                            ? <img src={m.photoUrl} alt="" className="w-11 h-11 rounded-lg object-cover border border-gray-100" />
+                            : <div className="w-11 h-11 rounded-lg bg-gray-100" />}
+                        </td>
+                        <td className="px-3 py-2 font-medium text-[#0f1b35]">{m.name}</td>
+                        <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{m.qty.toLocaleString()} {m.unit}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-gray-600">{fmt(m.costPerUnit)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-semibold text-red-600">{fmt(m.total)}</td>
+                        <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{m.last || '—'}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gray-50 font-semibold">
+                      <td className="px-3 py-2.5" colSpan={4}>{tr.total}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-red-600">
+                        {fmt(vendorMats.filter(m => m.vendorId === txVendor.id).reduce((s, m) => s + m.total, 0))}
+                      </td>
+                      <td className="px-3 py-2.5"></td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
