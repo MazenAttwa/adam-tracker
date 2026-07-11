@@ -60,6 +60,7 @@ export default function MaterialsPage() {
   const [pendingPreview, setPendingPreview] = useState<string | null>(null)
   const [pendingReceipt, setPendingReceipt] = useState<File | null>(null)
   const [pendingLogistic, setPendingLogistic] = useState('')
+  const [pendingVendorId, setPendingVendorId] = useState('')
   const [pendingPurchaseDate, setPendingPurchaseDate] = useState(new Date().toISOString().slice(0, 10))
   const photoInputRef = useRef<HTMLInputElement>(null)
 
@@ -134,6 +135,7 @@ export default function MaterialsPage() {
     setPendingPreview(null)
     setPendingReceipt(null)
     setPendingLogistic('')
+    setPendingVendorId('')
     setPendingPurchaseDate(new Date().toISOString().slice(0, 10))
     if (photoInputRef.current) photoInputRef.current.value = ''
   }
@@ -239,6 +241,7 @@ export default function MaterialsPage() {
           type: 'in',
           quantity: payload.current_quantity,
           notes: 'Initial stock',
+          vendor_id: pendingVendorId || null,
           purchase_date: pendingPurchaseDate || new Date().toISOString().slice(0, 10),
           total_cost: payload.cost_per_unit > 0 ? payload.cost_per_unit * payload.current_quantity : null,
           logistic_cost: pendingLogistic ? Number(pendingLogistic) : null,
@@ -246,6 +249,24 @@ export default function MaterialsPage() {
           receipt_name: initReceiptName,
           created_by: profile?.id,
         })
+        // Record the purchase against the supplying vendor (shows as owed in their account)
+        const initCost = payload.cost_per_unit > 0 ? payload.cost_per_unit * payload.current_quantity : 0
+        if (pendingVendorId && initCost > 0) {
+          const vendor = vendors.find(v => v.id === pendingVendorId)
+          if (vendor) {
+            await supabase.from('vendor_transactions').insert({
+              vendor_id: pendingVendorId,
+              type: 'purchase',
+              amount: initCost,
+              notes: 'Purchase: ' + payload.name + ' x ' + payload.current_quantity,
+              created_by: profile?.id,
+            })
+            await supabase.from('vendors').update({
+              balance: vendor.balance + initCost,
+              updated_at: new Date().toISOString(),
+            }).eq('id', pendingVendorId)
+          }
+        }
         const initLogisticNum = pendingLogistic ? Number(pendingLogistic) : 0
         if (initLogisticNum > 0) {
           await supabase.from('expenses').insert({
@@ -281,6 +302,7 @@ export default function MaterialsPage() {
     setShowForm(false)
     clearPendingPhoto()
     fetchMaterials()
+    fetchVendors()
   }
 
   async function handleDelete() {
@@ -642,6 +664,16 @@ export default function MaterialsPage() {
 
           {!editing && (
             <>
+            <Select
+              label={tr.linkVendor}
+              value={pendingVendorId}
+              onChange={e => setPendingVendorId(e.target.value)}
+            >
+              <option value="">&mdash;</option>
+              {vendors.map(v => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </Select>
             <Input
               label={tr.purchaseDate}
               type="date"
