@@ -226,33 +226,44 @@ export default function MaterialsPage() {
           created_by: profile?.id,
         })
       }
-      // Link this material's past purchases to the chosen supplier (only untagged ones with a known cost)
+      // Link this material's purchases to the chosen supplier and record what we owe them.
+      // firstLink = this material had no supplier before, so we only ever bill the opening stock once.
+      const firstLink = !editing.vendor_id && !!editVendorId
       if (editVendorId) {
         const { data: untagged } = await supabase
           .from('stock_movements')
-          .select('id, total_cost')
+          .select('id, quantity, total_cost')
           .eq('material_id', editing.id)
           .eq('type', 'in')
           .is('vendor_id', null)
-          .not('total_cost', 'is', null)
-        const rows = (untagged ?? []) as { id: string; total_cost: number | null }[]
+        const rows = (untagged ?? []) as { id: string; quantity: number; total_cost: number | null }[]
+        const costed = rows.filter(r => r.total_cost != null && r.total_cost > 0)
+
         if (rows.length > 0) {
           await supabase.from('stock_movements').update({ vendor_id: editVendorId }).in('id', rows.map(r => r.id))
-          const amount = rows.reduce((s, r) => s + (r.total_cost ?? 0), 0)
-          const vendor = vendors.find(v => v.id === editVendorId)
-          if (vendor && amount > 0) {
-            await supabase.from('vendor_transactions').insert({
-              vendor_id: editVendorId,
-              type: 'purchase',
-              amount,
-              notes: 'Purchase: ' + payload.name + ' (linked to supplier)',
-              created_by: profile?.id,
-            })
-            await supabase.from('vendors').update({
-              balance: vendor.balance + amount,
-              updated_at: new Date().toISOString(),
-            }).eq('id', editVendorId)
-          }
+        }
+
+        // Amount owed: use recorded purchase costs when we have them.
+        let amount = costed.reduce((s, r) => s + (r.total_cost ?? 0), 0)
+        // Otherwise (old stock with no recorded cost), value the stock at the material's cost/unit — once.
+        if (amount <= 0 && firstLink) {
+          const qty = stockMap[editing.id] ?? 0
+          amount = qty * (payload.cost_per_unit || 0)
+        }
+
+        const vendor = vendors.find(v => v.id === editVendorId)
+        if (vendor && amount > 0 && (costed.length > 0 || firstLink)) {
+          await supabase.from('vendor_transactions').insert({
+            vendor_id: editVendorId,
+            type: 'purchase',
+            amount,
+            notes: 'Purchase: ' + payload.name + ' (linked to supplier)',
+            created_by: profile?.id,
+          })
+          await supabase.from('vendors').update({
+            balance: vendor.balance + amount,
+            updated_at: new Date().toISOString(),
+          }).eq('id', editVendorId)
         }
       }
       logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'material', payload.name, diffDetails(
