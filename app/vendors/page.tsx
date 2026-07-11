@@ -188,6 +188,21 @@ export default function VendorsPage() {
 
   const totalOwed = vendors.reduce((s, v) => s + v.balance, 0)
 
+  // Per-vendor account: purchases (owed), payments (paid), remaining, last purchase date
+  function vendorAccount(v: Vendor) {
+    const txs = transactions.filter(t => t.vendor_id === v.id)
+    const purchases = txs.filter(t => t.type === 'purchase')
+    const owed = purchases.reduce((s, t) => s + (t.amount || 0), 0)
+    const paid = txs.filter(t => t.type === 'payment').reduce((s, t) => s + (t.amount || 0), 0)
+    const last = purchases.length ? purchases.reduce((a, b) => (a.created_at > b.created_at ? a : b)).created_at : ''
+    return { owed, paid, remaining: owed - paid, count: purchases.length, last }
+  }
+
+  const grand = vendors.reduce((acc, v) => {
+    const a = vendorAccount(v)
+    return { owed: acc.owed + a.owed, paid: acc.paid + a.paid, remaining: acc.remaining + Math.max(0, a.remaining) }
+  }, { owed: 0, paid: 0, remaining: 0 })
+
   // Aging: vendors with balance > 0, ordered by oldest purchase
   const agingData = vendors
     .filter(v => v.balance > 0)
@@ -269,15 +284,23 @@ export default function VendorsPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
             <p className="text-sm text-gray-500">{tr.totalVendors}</p>
             <p className="text-3xl font-bold mt-1 text-[#0f1b35]">{vendors.length}</p>
           </div>
-          <div className={`rounded-xl p-5 border shadow-sm ${totalOwed > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-100'}`}>
-            <p className="text-sm text-gray-500">{tr.totalOutstanding}</p>
-            <p className={`text-3xl font-bold mt-1 tabular-nums ${totalOwed > 0 ? 'text-amber-700' : 'text-[#0f1b35]'}`}>
-              {totalOwed.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { minimumFractionDigits: 2 })}
+          <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+            <p className="text-sm text-gray-500">{tr.purchase}</p>
+            <p className="text-3xl font-bold mt-1 text-[#0f1b35] tabular-nums">{fmt(grand.owed)}</p>
+          </div>
+          <div className="bg-green-50 rounded-xl p-5 border border-green-100 shadow-sm">
+            <p className="text-sm text-gray-500">{tr.totalPaid}</p>
+            <p className="text-3xl font-bold mt-1 text-green-700 tabular-nums">{fmt(grand.paid)}</p>
+          </div>
+          <div className={`rounded-xl p-5 border shadow-sm ${grand.remaining > 0.005 ? 'bg-red-50 border-red-100' : 'bg-white border-gray-100'}`}>
+            <p className="text-sm text-gray-500">{tr.remaining}</p>
+            <p className={`text-3xl font-bold mt-1 tabular-nums ${grand.remaining > 0.005 ? 'text-red-600' : 'text-[#0f1b35]'}`}>
+              {fmt(grand.remaining)}
             </p>
           </div>
         </div>
@@ -325,7 +348,10 @@ export default function VendorsPage() {
                         <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.vendorName}</th>
                         <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.vendorPhone}</th>
                         <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.vendorCategory}</th>
-                        <th className="text-right px-5 py-3 font-medium text-gray-600">{tr.balance}</th>
+                        <th className="text-right px-5 py-3 font-medium text-gray-600">{tr.purchase}</th>
+                        <th className="text-right px-5 py-3 font-medium text-gray-600">{tr.totalPaid}</th>
+                        <th className="text-right px-5 py-3 font-medium text-gray-600">{tr.remaining}</th>
+                        <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.lastPurchase}</th>
                         {profile?.role === 'manager' && (
                           <th className="text-right px-5 py-3 font-medium text-gray-600">{tr.actions}</th>
                         )}
@@ -341,10 +367,29 @@ export default function VendorsPage() {
                               {catLabel(v.category)}
                             </span>
                           </td>
-                          <td className={`px-5 py-3.5 text-right font-semibold tabular-nums ${v.balance > 0 ? 'text-amber-700' : 'text-gray-400'}`}>
-                            {v.balance > 0
-                              ? v.balance.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { minimumFractionDigits: 2 })
-                              : '—'}
+                          <td className="px-5 py-3.5 text-right tabular-nums text-[#0f1b35]">
+                            {(() => { const a = vendorAccount(v); return a.owed > 0 ? fmt(a.owed) : '\u2014' })()}
+                          </td>
+                          <td className="px-5 py-3.5 text-right tabular-nums text-green-700">
+                            {(() => { const a = vendorAccount(v); return a.paid > 0 ? fmt(a.paid) : '\u2014' })()}
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            {(() => {
+                              const a = vendorAccount(v)
+                              if (a.owed <= 0 && a.paid <= 0) return <span className="text-gray-400">&mdash;</span>
+                              const pct = a.owed > 0 ? Math.min(100, Math.round((a.paid / a.owed) * 100)) : 100
+                              return (
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className={`font-semibold tabular-nums ${a.remaining > 0.005 ? 'text-red-600' : 'text-green-700'}`}>{fmt(Math.max(0, a.remaining))}</span>
+                                  <div className="w-20 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                    <div className="h-full bg-green-500" style={{ width: pct + '%' }} />
+                                  </div>
+                                </div>
+                              )
+                            })()}
+                          </td>
+                          <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap">
+                            {(() => { const a = vendorAccount(v); return a.last ? formatDate(a.last, lang) + ' (' + a.count + ')' : '\u2014' })()}
                           </td>
                           {profile?.role === 'manager' && (
                             <td className="px-5 py-3.5 text-right">
