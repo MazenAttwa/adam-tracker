@@ -151,17 +151,19 @@ export default function MaterialsPage() {
   }
 
   async function openEdit(m: Material) {
-    setEditVendorId('')
     setEditVendorLinked(false)
-    const { data: mv } = await supabase
-      .from('stock_movements')
-      .select('vendor_id')
-      .eq('material_id', m.id)
-      .eq('type', 'in')
-      .not('vendor_id', 'is', null)
-      .limit(1)
-    const linked = ((mv ?? []) as { vendor_id: string | null }[])[0]?.vendor_id ?? ''
-    if (linked) { setEditVendorId(linked); setEditVendorLinked(true) }
+    let vid = m.vendor_id ?? ''
+    if (!vid) {
+      const { data: mv } = await supabase
+        .from('stock_movements')
+        .select('vendor_id')
+        .eq('material_id', m.id)
+        .eq('type', 'in')
+        .not('vendor_id', 'is', null)
+        .limit(1)
+      vid = ((mv ?? []) as { vendor_id: string | null }[])[0]?.vendor_id ?? ''
+    }
+    setEditVendorId(vid)
     setEditing(m)
     setForm({
       name: m.name,
@@ -204,6 +206,7 @@ export default function MaterialsPage() {
       minimum_quantity: parseFloat(form.minimum_quantity) || 0,
       cost_per_unit: parseFloat(form.cost_per_unit) || 0,
       notes: form.notes.trim() || null,
+      vendor_id: (editing ? editVendorId : pendingVendorId) || null,
       updated_at: new Date().toISOString(),
     }
 

@@ -148,6 +148,7 @@ export interface Material {
   minimum_quantity: number
   cost_per_unit: number
   notes: string | null
+  vendor_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
