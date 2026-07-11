@@ -315,6 +315,8 @@ export const t = {
 
     // Vendor link in stock
     linkVendor: 'Vendor (optional)',
+    linkVendorHint: 'Assign the supplier for this material. Past purchases with a recorded cost will be added to their account as owed.',
+    vendorAlreadyLinked: 'Supplier already linked to the purchases of this material.',
     noVendor: 'No vendor',
     purchaseAmount: 'Purchase Amount',
 
@@ -877,6 +879,8 @@ export const t = {
     oldestPurchase: 'منذ',
 
     linkVendor: 'المورّد (اختياري)',
+    linkVendorHint: 'اختر المورد لهذه الخامة. سيتم إضافة المشتريات السابقة ذات التكلفة المسجلة إلى حسابه كمستحقات.',
+    vendorAlreadyLinked: 'المورد مرتبط بالفعل بمشتريات هذه الخامة.',
     noVendor: 'بدون مورّد',
     purchaseAmount: 'مبلغ الشراء',
 

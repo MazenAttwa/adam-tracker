@@ -61,6 +61,8 @@ export default function MaterialsPage() {
   const [pendingReceipt, setPendingReceipt] = useState<File | null>(null)
   const [pendingLogistic, setPendingLogistic] = useState('')
   const [pendingVendorId, setPendingVendorId] = useState('')
+  const [editVendorId, setEditVendorId] = useState('')
+  const [editVendorLinked, setEditVendorLinked] = useState(false)
   const [pendingPurchaseDate, setPendingPurchaseDate] = useState(new Date().toISOString().slice(0, 10))
   const photoInputRef = useRef<HTMLInputElement>(null)
 
@@ -148,7 +150,18 @@ export default function MaterialsPage() {
     setShowForm(true)
   }
 
-  function openEdit(m: Material) {
+  async function openEdit(m: Material) {
+    setEditVendorId('')
+    setEditVendorLinked(false)
+    const { data: mv } = await supabase
+      .from('stock_movements')
+      .select('vendor_id')
+      .eq('material_id', m.id)
+      .eq('type', 'in')
+      .not('vendor_id', 'is', null)
+      .limit(1)
+    const linked = ((mv ?? []) as { vendor_id: string | null }[])[0]?.vendor_id ?? ''
+    if (linked) { setEditVendorId(linked); setEditVendorLinked(true) }
     setEditing(m)
     setForm({
       name: m.name,
@@ -209,6 +222,35 @@ export default function MaterialsPage() {
           purchase_date: new Date().toISOString().slice(0, 10),
           created_by: profile?.id,
         })
+      }
+      // Link this material's past purchases to the chosen supplier (only untagged ones with a known cost)
+      if (editVendorId) {
+        const { data: untagged } = await supabase
+          .from('stock_movements')
+          .select('id, total_cost')
+          .eq('material_id', editing.id)
+          .eq('type', 'in')
+          .is('vendor_id', null)
+          .not('total_cost', 'is', null)
+        const rows = (untagged ?? []) as { id: string; total_cost: number | null }[]
+        if (rows.length > 0) {
+          await supabase.from('stock_movements').update({ vendor_id: editVendorId }).in('id', rows.map(r => r.id))
+          const amount = rows.reduce((s, r) => s + (r.total_cost ?? 0), 0)
+          const vendor = vendors.find(v => v.id === editVendorId)
+          if (vendor && amount > 0) {
+            await supabase.from('vendor_transactions').insert({
+              vendor_id: editVendorId,
+              type: 'purchase',
+              amount,
+              notes: 'Purchase: ' + payload.name + ' (linked to supplier)',
+              created_by: profile?.id,
+            })
+            await supabase.from('vendors').update({
+              balance: vendor.balance + amount,
+              updated_at: new Date().toISOString(),
+            }).eq('id', editVendorId)
+          }
+        }
       }
       logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'material', payload.name, diffDetails(
         { name: editing.name, code: editing.code, unit: editing.unit, min: editing.minimum_quantity, cost: editing.cost_per_unit, stock: liveStock },
@@ -614,6 +656,25 @@ export default function MaterialsPage() {
           <Textarea label={tr.materialNotes} value={form.notes} onChange={e => set('notes', e.target.value)} rows={2} />
 
           {/* Photo upload — full component for Edit, simple picker for Add */}
+          {editing && (
+            <div>
+              <Select
+                label={tr.linkVendor}
+                value={editVendorId}
+                onChange={e => setEditVendorId(e.target.value)}
+                disabled={editVendorLinked}
+              >
+                <option value="">&mdash;</option>
+                {vendors.map(v => (
+                  <option key={v.id} value={v.id}>{v.name}</option>
+                ))}
+              </Select>
+              <p className="text-xs text-gray-400 mt-1">
+                {editVendorLinked ? tr.vendorAlreadyLinked : tr.linkVendorHint}
+              </p>
+            </div>
+          )}
+
           {editing ? (
             <MaterialPhotoUpload materialId={editing.id} canEdit={profile?.role === 'manager'} />
           ) : (
