@@ -253,7 +253,7 @@ export default function MaterialsPage() {
             vendor_id: editVendorId,
             type: 'purchase',
             amount,
-            notes: 'Purchase: ' + payload.name,
+            notes: payload.name + ' \u2014 ' + (stockMap[editing.id] ?? 0) + ' ' + payload.unit + ' @ ' + (payload.cost_per_unit || 0) + '/' + payload.unit,
             created_by: profile?.id,
           })
           await supabase.from('vendors').update({
@@ -310,7 +310,7 @@ export default function MaterialsPage() {
               vendor_id: pendingVendorId,
               type: 'purchase',
               amount: initCost,
-              notes: 'Purchase: ' + payload.name + ' x ' + payload.current_quantity,
+              notes: payload.name + ' \u2014 ' + payload.current_quantity + ' ' + payload.unit + ' @ ' + (payload.cost_per_unit || 0) + '/' + payload.unit,
               created_by: profile?.id,
             })
             await supabase.from('vendors').update({
@@ -440,7 +440,7 @@ export default function MaterialsPage() {
           vendor_id: reorderVendorId,
           type: 'purchase',
           amount: amt,
-          notes: `Reorder: ${reorderMaterial.name} × ${qty}`,
+          notes: `${reorderMaterial.name} \u2014 ${qty} ${reorderMaterial.unit} @ ${(amt / qty).toFixed(2)}/${reorderMaterial.unit}`,
           created_by: profile?.id,
         })
         await supabase.from('vendors').update({

@@ -598,8 +598,8 @@ export default function VendorsPage() {
                       <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${tx.type === 'purchase' ? 'text-red-600' : 'text-green-700'}`}>
                         {tx.type === 'purchase' ? '+' : '−'}{tx.amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="px-4 py-2.5 text-gray-500 max-w-[160px]">
-                        <span className="truncate block">{tx.notes ?? '—'}</span>
+                      <td className="px-4 py-2.5 text-gray-600 min-w-[220px]">
+                        <span className="block whitespace-normal break-words">{tx.notes ?? '—'}</span>
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-[#0f1b35]">{fmt(tx.running)}</td>
                     </tr>
