@@ -157,6 +157,26 @@ export default function SalesPage() {
     setShowForm(true)
   }
 
+  // A sale must show up in the P&L. Sales that belong to an order are skipped,
+  // because advancing that order already recorded its revenue.
+  async function syncSaleRevenue(saleId: string, orderId: string | null, date: string, amount: number, invoice: string) {
+    const { data: existing } = await supabase.from('revenue').select('id').eq('sale_id', saleId).maybeSingle()
+    if (orderId || amount <= 0) {
+      if (existing?.id) await supabase.from('revenue').delete().eq('id', existing.id)
+      return
+    }
+    if (existing?.id) {
+      await supabase.from('revenue').update({
+        date, amount, description: 'Invoice ' + invoice, updated_at: new Date().toISOString(),
+      }).eq('id', existing.id)
+    } else {
+      await supabase.from('revenue').insert({
+        date, type: 'sales', amount, description: 'Invoice ' + invoice,
+        sale_id: saleId, created_by: profile?.id,
+      })
+    }
+  }
+
   async function handleSave() {
     setFormError('')
     if (!form.retailer_id) { setFormError(tr.required); return }
@@ -199,6 +219,11 @@ export default function SalesPage() {
         notes: form.notes.trim() || null,
         updated_at: new Date().toISOString(),
       }).eq('id', editingSale.id)
+
+      // Keep this sale's revenue in sync. Sales linked to an order are skipped
+      // because the order already recorded that revenue (no double-counting).
+      await syncSaleRevenue(editingSale.id, form.order_id || null, form.date, totalAmount, form.invoice_number)
+
       logAudit({ id: profile?.id, email: profile?.email }, 'edit', 'sale', editingSale.invoice_number, diffDetails(
         { date: editingSale.date, total: editingSale.total_amount, delivery: editingSale.delivery_status },
         { date: form.date, total: totalAmount, delivery: form.delivery_status },
@@ -216,7 +241,7 @@ export default function SalesPage() {
       }
     } else {
       // Insert new sale
-      await supabase.from('sales').insert({
+      const { data: newSale } = await supabase.from('sales').insert({
         invoice_number: form.invoice_number,
         date: form.date,
         retailer_id: form.retailer_id,
@@ -228,7 +253,13 @@ export default function SalesPage() {
         delivery_notes: form.delivery_notes.trim() || null,
         notes: form.notes.trim() || null,
         created_by: profile?.id,
-      })
+      }).select('id').single()
+
+      // Record the revenue for this sale (skipped if it belongs to an order,
+      // which already recorded its own revenue).
+      if (newSale?.id) {
+        await syncSaleRevenue(newSale.id, form.order_id || null, form.date, totalAmount, form.invoice_number)
+      }
       logAudit({ id: profile?.id, email: profile?.email }, 'create', 'sale', form.invoice_number, 'Created sale ' + form.invoice_number + ' (' + totalAmount.toFixed(2) + ')')
 
       // Add total to retailer balance
@@ -269,6 +300,7 @@ export default function SalesPage() {
     }
 
     logAudit({ id: profile?.id, email: profile?.email }, 'delete', 'sale', showDelete.invoice_number, 'Deleted sale ' + showDelete.invoice_number + ' (' + showDelete.total_amount.toFixed(2) + ')')
+    await supabase.from('revenue').delete().eq('sale_id', showDelete.id)
     await supabase.from('sales').delete().eq('id', showDelete.id)
     setDeleting(false)
     setShowDelete(null)
