@@ -18,6 +18,7 @@ export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProp
   const { tr, lang } = useLang()
   const stageIndex = STAGE_ORDER[order.current_stage]
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [journey, setJourney] = useState<{ label: string; qty: number }[] | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -33,6 +34,35 @@ export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProp
         const { data: urlData } = supabase.storage.from('product-photos').getPublicUrl(data[0].file_path)
         setPhotoUrl(urlData.publicUrl)
       })
+
+    // Piece journey (quantity through the stages)
+    supabase
+      .from('stage_data')
+      .select('stage, data')
+      .eq('order_id', order.id)
+      .then(({ data }) => {
+        if (!mounted || !data) return
+        const map: Record<string, Record<string, unknown>> = {}
+        ;(data as { stage: string; data: Record<string, unknown> }[]).forEach(r => { map[r.stage] = r.data ?? {} })
+        const num = (stage: string, key: string) => {
+          const v = map[stage]?.[key]
+          return typeof v === 'number' ? v : 0
+        }
+        const arr = map['finishing']?.['manufacturers']
+        const finishing = Array.isArray(arr)
+          ? (arr as { quantity?: number }[]).reduce((s, m) => s + (m.quantity ?? 0), 0)
+          : 0
+        const steps = [
+          { label: 'D', qty: num('draft', 'quantity') },
+          { label: 'C', qty: num('cutting', 'quantity_to_cut') },
+          { label: 'P', qty: num('printing', 'quantity_to_print') },
+          { label: 'F', qty: finishing },
+          { label: 'S', qty: num('submitted', 'quantity_submitted') },
+          { label: 'R', qty: num('received', 'quantity_received') },
+        ]
+        if (steps[0].qty > 0) setJourney(steps)
+      })
+
     return () => { mounted = false }
   }, [order.id])
 
@@ -134,6 +164,41 @@ export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProp
             </div>
           ))}
         </div>
+
+        {/* Piece journey (quantity through the stages) */}
+        {journey && (() => {
+          const expected = journey[0].qty
+          const maxQty = Math.max(...journey.map(s => s.qty), 1)
+          const finalQty = journey[5].qty || journey[4].qty || 0
+          const missing = expected - finalQty
+          const pct = expected > 0 ? (missing / expected) * 100 : 0
+          return (
+            <div className="mb-3 rounded-lg border border-gray-100 bg-gray-50/60 px-2.5 py-2">
+              <div className="flex items-end justify-between gap-1 h-12">
+                {journey.map((s, i) => {
+                  const h = s.qty > 0 ? Math.max(Math.round((s.qty / maxQty) * 32), 3) : 2
+                  const color =
+                    i === 0 ? 'bg-[#0f1b35]'
+                    : s.qty === 0 ? 'bg-gray-200'
+                    : s.qty < expected ? 'bg-amber-400'
+                    : 'bg-green-500'
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center justify-end gap-0.5" title={`${s.label}: ${s.qty}`}>
+                      <span className="text-[9px] font-semibold text-gray-600 tabular-nums leading-none">{s.qty || ''}</span>
+                      <div className={`w-full rounded-sm ${color}`} style={{ height: h + 'px' }} />
+                      <span className="text-[8px] text-gray-400 leading-none">{s.label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              {finalQty > 0 && missing > 0 && (
+                <p className="mt-1 text-[10px] font-semibold text-red-600 text-center">
+                  {tr.missing}: {missing} ({pct.toFixed(1)}%)
+                </p>
+              )}
+            </div>
+          )
+        })()}
 
         <div className="flex items-center justify-between">
           <Badge className={STAGE_COLORS[order.current_stage]}>
