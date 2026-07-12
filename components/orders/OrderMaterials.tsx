@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/contexts/LanguageContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Input'
 import type { Material, OrderMaterial } from '@/lib/types'
@@ -20,6 +21,8 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
   const { tr, lang } = useLang()
   const supabase = createClient()
 
+  const { profile } = useAuth()
+  const [deductingId, setDeductingId] = useState<string | null>(null)
   const [orderMaterials, setOrderMaterials] = useState<OrderMaterial[]>([])
   const [allMaterials, setAllMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
@@ -103,6 +106,39 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
     setSelectedMaterial('')
     setQty('')
     setAddError('')
+  }
+
+  // Stock is normally deducted the moment an order moves into Cutting.
+  // If a material was added after that point, it never gets deducted —
+  // this lets a manager deduct it explicitly.
+  async function handleDeductNow(om: OrderMaterial) {
+    if (om.is_deducted) return
+    setDeductingId(om.id)
+
+    const { data: ord } = await supabase.from('orders').select('order_number').eq('id', orderId).single()
+    const orderNo = (ord as { order_number: string } | null)?.order_number ?? ''
+
+    await supabase.from('stock_movements').insert({
+      material_id: om.material_id,
+      type: 'out',
+      quantity: om.quantity_needed,
+      order_id: orderId,
+      notes: 'Deducted for order ' + orderNo,
+      created_by: profile?.id,
+    })
+
+    const { data: mat } = await supabase
+      .from('materials').select('current_quantity').eq('id', om.material_id).single()
+    if (mat) {
+      await supabase.from('materials').update({
+        current_quantity: Math.max(0, (mat as { current_quantity: number }).current_quantity - om.quantity_needed),
+        updated_at: new Date().toISOString(),
+      }).eq('id', om.material_id)
+    }
+
+    await supabase.from('order_materials').update({ is_deducted: true }).eq('id', om.id)
+    setDeductingId(null)
+    fetchData()
   }
 
   async function handleRemove(id: string) {
@@ -351,9 +387,20 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
                             ✓ {tr.deducted}
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
-                            ⏳ {tr.pendingDeduction}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                              {tr.pendingDeduction}
+                            </span>
+                            {canEdit && (
+                              <button
+                                onClick={() => handleDeductNow(om)}
+                                disabled={deductingId === om.id}
+                                className="text-xs font-medium text-[#c9a84c] hover:underline disabled:opacity-40 whitespace-nowrap"
+                              >
+                                {deductingId === om.id ? '...' : tr.deductNow}
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
 
