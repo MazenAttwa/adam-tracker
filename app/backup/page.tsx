@@ -13,6 +13,8 @@ const TABLES = [
   'stock_movements', 'manufacturers', 'finishing_manufacturers', 'vendors',
   'vendor_transactions', 'expenses', 'revenue', 'month_closes', 'retailers',
   'sales', 'order_photos', 'production_lines', 'production_assignments', 'profiles',
+  // Added: brands + payment ledgers + audit trail (were missing from backups)
+  'brands', 'manufacturer_payments', 'retailer_payments', 'finishing_types', 'audit_log',
 ]
 
 export default function BackupPage() {
