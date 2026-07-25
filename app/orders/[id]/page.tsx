@@ -752,8 +752,9 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
                   </>
                 )}
 
-                {/* Linked sale + profit */}
-                {linkedSaleAmount !== null && (
+                {/* Linked sale estimate: shown only when the order has NOT recorded
+                    real received revenue yet (otherwise Gross Profit above is the truth). */}
+                {linkedSaleAmount !== null && receivedRevenue <= 0 && (
                   <>
                     <div className="flex items-center justify-between py-2 border-t border-gray-100 mt-1">
                       <span className="text-sm text-gray-600">{tr.linkedSaleAmount}</span>
@@ -762,7 +763,7 @@ export default function OrderDetailPage(props: { params: Promise<{ id: string }>
                       </span>
                     </div>
                     <div className="flex items-center justify-between py-2">
-                      <span className="font-semibold text-[#0f1b35]">{tr.profitEstimate}</span>
+                      <span className="font-semibold text-[#0f1b35]">{tr.profitEstimate} <span className="text-xs font-normal text-gray-400">({tr.estimateFromSale})</span></span>
                       <span className={`font-bold text-lg tabular-nums ${
                         (profitEstimate ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
