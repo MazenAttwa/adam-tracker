@@ -178,6 +178,14 @@ export default function SalesPage() {
   }
 
   async function handleSave() {
+    if (editingSale && editingSale.order_id) {
+      const originalTotal = editingSale.total_amount
+      const newTotal = saleItems.reduce((s, it) => s + (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 0)
+      if (Math.abs(newTotal - originalTotal) > 0.005) {
+        setFormError(tr.orderLinkedSaleBlocked)
+        return
+      }
+    }
     setFormError('')
     if (!form.retailer_id) { setFormError(tr.required); return }
     if (!form.date) { setFormError(tr.required); return }
@@ -562,6 +570,12 @@ export default function SalesPage() {
         <div className="space-y-4">
           {formError && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{formError}</p>
+          )}
+
+          {editingSale && editingSale.order_id && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              {tr.orderLinkedSaleWarning}
+            </p>
           )}
 
           {/* Invoice number (readonly) */}

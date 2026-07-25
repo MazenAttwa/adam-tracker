@@ -476,6 +476,8 @@ export const t = {
     // Sales module
     addSale: 'New Sale',
     editSale: 'Edit Sale',
+    orderLinkedSaleWarning: 'This sale belongs to an order. To change the amount, edit the Received stage on that order - it is the source of truth.',
+    orderLinkedSaleBlocked: 'Cannot change the amount of an order-linked sale here. Edit the Received stage on the order instead.',
     saleItems: 'Items',
     noSales: 'No sales found.',
     deleteConfirmSale: 'Delete this sale? This cannot be undone.',
@@ -1036,6 +1038,8 @@ export const t = {
 
     addSale: 'بيع جديد',
     editSale: 'تعديل البيع',
+    orderLinkedSaleWarning: 'هذه المبيعة مرتبطة بأوردر. لتغيير المبلغ، عدّل مرحلة الاستلام في الأوردر - فهي المصدر الأساسي.',
+    orderLinkedSaleBlocked: 'لا يمكن تغيير مبلغ مبيعة مرتبطة بأوردر من هنا. عدّل مرحلة الاستلام في الأوردر بدلاً من ذلك.',
     saleItems: 'المنتجات',
     noSales: 'لا توجد مبيعات.',
     deleteConfirmSale: 'حذف هذه المبيعة؟ لا يمكن التراجع.',
