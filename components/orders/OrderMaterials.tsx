@@ -163,6 +163,31 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
       return
     }
     await supabase.from('order_materials').update({ quantity_needed: parsed }).eq('id', om.id)
+
+    // If this material was already deducted from stock, correct the ledger by the difference.
+    // delta > 0 means we now need MORE -> deduct extra; delta < 0 means we deducted too much -> give back.
+    if (om.is_deducted) {
+      const delta = parsed - om.quantity_needed
+      if (Math.abs(delta) > 0.0001) {
+        await supabase.from('stock_movements').insert({
+          material_id: om.material_id,
+          type: delta > 0 ? 'out' : 'in',
+          quantity: Math.abs(delta),
+          order_id: orderId,
+          notes: 'Quantity correction for this order',
+          created_by: profile?.id,
+        })
+        const { data: mat } = await supabase
+          .from('materials').select('current_quantity').eq('id', om.material_id).single()
+        if (mat) {
+          await supabase.from('materials').update({
+            current_quantity: (mat as { current_quantity: number }).current_quantity - delta,
+            updated_at: new Date().toISOString(),
+          }).eq('id', om.material_id)
+        }
+      }
+    }
+
     setOrderMaterials(prev =>
       prev.map(m => m.id === om.id ? { ...m, quantity_needed: parsed } : m)
     )
@@ -342,7 +367,7 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
 
                       {/* Quantity — editable until deducted */}
                       <td className="px-4 py-3 text-right">
-                        {!om.is_deducted && canEdit ? (
+                        {canEdit ? (
                           <div className="flex items-center justify-end gap-1.5">
                             <input
                               type="number"
