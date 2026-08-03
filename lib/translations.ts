@@ -372,6 +372,7 @@ export const t = {
     // Order materials
     orderMaterials: 'Required Materials',
     quantityNeeded: 'Qty Needed',
+    qtyExceedsStock: 'That is {qty}, but only {stock} is in stock. If this is correct, tap Add again to confirm.',
     deducted: 'Deducted',
     pendingDeduction: 'Pending',
     deductNow: 'Deduct now',
@@ -942,6 +943,7 @@ export const t = {
 
     orderMaterials: 'المواد المطلوبة',
     quantityNeeded: 'الكمية المطلوبة',
+    qtyExceedsStock: 'الكمية {qty} بينما المتاح في المخزون {stock} فقط. إذا كان هذا صحيحاً، اضغط إضافة مرة أخرى للتأكيد.',
     deducted: 'تم الخصم',
     pendingDeduction: 'قيد الخصم',
     deductNow: 'خصم الآن',

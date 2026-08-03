@@ -33,6 +33,7 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
   const [qty, setQty] = useState('')
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState('')
+  const [qtyConfirmed, setQtyConfirmed] = useState(false)
 
   // Inline quantity-edit state (saved on blur)
   const [removingId, setRemovingId] = useState<string | null>(null)
@@ -69,6 +70,20 @@ export function OrderMaterials({ orderId, canEdit, onCostChange }: OrderMaterial
       setAddError(tr.quantityNeeded)
       return
     }
+
+    // Typo guard: warn (once) if the amount is way more than what's in stock.
+    const mat = allMaterials.find(m => m.id === selectedMaterial)
+    const inStock = mat?.current_quantity ?? 0
+    if (mat && qtyNum > inStock && qtyNum > 10 * Math.max(inStock, 1) && !qtyConfirmed) {
+      setAddError(
+        tr.qtyExceedsStock
+          .replace('{qty}', qtyNum.toLocaleString())
+          .replace('{stock}', inStock.toLocaleString())
+      )
+      setQtyConfirmed(true)
+      return
+    }
+    setQtyConfirmed(false)
 
     setAdding(true)
 
