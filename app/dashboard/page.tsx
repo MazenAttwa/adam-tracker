@@ -11,6 +11,7 @@ import { OrderCard } from '@/components/orders/OrderCard'
 import { Badge } from '@/components/ui/Badge'
 import { STAGE_COLORS, STAGES } from '@/lib/stageConfig'
 import type { Order, Stage, Material, Retailer } from '@/lib/types'
+import { deadlineInfo } from '@/lib/deadline'
 
 export default function DashboardPage() {
   const { profile, loading } = useAuth()
@@ -159,6 +160,27 @@ export default function DashboardPage() {
             </Link>
           )}
         </div>
+
+        {/* Overdue / due-soon alert */}
+        {(() => {
+          const active = orders.filter(o => o.status !== 'cancelled' && o.status !== 'completed')
+          const overdue = active.filter(o => deadlineInfo(o.deadline, false).status === 'overdue')
+          const dueSoon = active.filter(o => deadlineInfo(o.deadline, false).status === 'due-soon')
+          if (overdue.length === 0 && dueSoon.length === 0) return null
+          return (
+            <Link href="/orders?filter=overdue" className={`flex items-center justify-between gap-3 mb-6 rounded-xl px-4 py-3 border ${overdue.length > 0 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+              <div className="flex items-center gap-3">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={overdue.length > 0 ? '#dc2626' : '#d97706'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                <span className="text-sm font-medium text-[#0f1b35]">
+                  {overdue.length > 0 && <span className="text-red-700 font-bold">{overdue.length} {tr.overdueOrders}</span>}
+                  {overdue.length > 0 && dueSoon.length > 0 && <span className="text-gray-400"> &middot; </span>}
+                  {dueSoon.length > 0 && <span className="text-amber-700">{dueSoon.length} {tr.dueSoonOrders}</span>}
+                </span>
+              </div>
+              <span className="text-xs font-semibold text-[#c9a84c]">{tr.viewOverdue} &rarr;</span>
+            </Link>
+          )
+        })()}
 
         {/* Quick Actions (manager only) */}
         {profile?.role === 'manager' && (

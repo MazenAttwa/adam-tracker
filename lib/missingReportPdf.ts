@@ -7,6 +7,8 @@ export interface MissingOrderRow {
   received: number
   missing: number
   lossPct: number
+  photoUrl?: string
+  stages?: { label: string; qty: number }[]
 }
 
 export interface MissingStageRow {
@@ -58,18 +60,29 @@ export function printMissingReport(o: MissingReportOptions) {
 
   const rowClass = (pct: number) => (pct >= 15 ? 'hi' : pct >= 5 ? 'mid' : '')
 
+  const barsFor = (r: MissingOrderRow) => {
+    if (!r.stages || !r.stages.length) return ''
+    const mx = Math.max(...r.stages.map(s => s.qty), 1)
+    return '<div class="bars">' + r.stages.map((s, i) => {
+      const h = s.qty > 0 ? Math.max(Math.round((s.qty / mx) * 26), 2) : 2
+      const cls = i === 0 ? 'b0' : s.qty === 0 ? 'bg' : s.qty < r.expected ? 'ba' : 'bgr'
+      return '<span class="bwrap"><span class="bar ' + cls + '" style="height:' + h + 'px"></span><span class="blab">' + s.label + '</span></span>'
+    }).join('') + '</div>'
+  }
   const orderRows = o.orders.length
     ? o.orders.map(r =>
         '<tr class="' + rowClass(r.lossPct) + '">'
+        + '<td class="ph">' + (r.photoUrl ? '<img src="' + r.photoUrl + '" />' : '') + '</td>'
         + '<td><b>' + esc(r.orderNumber) + '</b></td>'
         + '<td>' + esc(r.product) + '</td>'
+        + '<td>' + barsFor(r) + '</td>'
         + '<td class="r">' + nf(r.expected) + '</td>'
         + '<td class="r">' + nf(r.received) + '</td>'
         + '<td class="r miss">' + nf(r.missing) + '</td>'
         + '<td class="r"><b>' + pf(r.lossPct) + '</b></td>'
         + '</tr>'
       ).join('')
-    : '<tr><td colspan="6" class="empty">No missing items - every order fully received.</td></tr>'
+    : '<tr><td colspan="8" class="empty">No missing items - every order fully received.</td></tr>'
 
   const stageRows = o.byStage.length
     ? o.byStage.map(s =>
@@ -106,6 +119,11 @@ export function printMissingReport(o: MissingReportOptions) {
     + 'td{padding:6px 8px;border-bottom:1px solid #f2f2f2;} td.r{text-align:right;} td.miss{color:#dc2626;font-weight:700;}'
     + 'tr.hi td{background:#fef2f2;} tr.mid td{background:#fffbeb;}'
     + 'td.empty{text-align:center;color:#999;padding:14px;}'
+    + 'td.ph{width:40px;} td.ph img{width:32px;height:32px;object-fit:cover;border-radius:4px;border:1px solid #eee;}'
+    + '.bars{display:flex;align-items:flex-end;gap:2px;height:30px;}'
+    + '.bwrap{display:flex;flex-direction:column;align-items:center;gap:1px;}'
+    + '.bar{width:7px;border-radius:2px 2px 0 0;display:block;} .blab{font-size:6px;color:#aaa;line-height:1;}'
+    + '.b0{background:#0f1b35;} .bg{background:#e5e7eb;} .ba{background:#f59e0b;} .bgr{background:#22c55e;}'
     + '.legend{font-size:10px;color:#999;margin-top:4px;}'
     + '.foot{margin-top:16px;text-align:center;color:#aaa;font-size:10px;}'
     + '</style></head><body>'
@@ -120,7 +138,7 @@ export function printMissingReport(o: MissingReportOptions) {
     + '</div>'
 
     + '<h2>' + esc(o.ordersHeading) + '</h2>'
-    + '<table><thead><tr><th>' + esc(o.orderLabel) + '</th><th>' + esc(o.productLabel) + '</th>'
+    + '<table><thead><tr><th></th><th>' + esc(o.orderLabel) + '</th><th>' + esc(o.productLabel) + '</th><th>Journey</th>'
     + '<th class="r">' + esc(o.expectedLabel) + '</th><th class="r">' + esc(o.receivedLabel) + '</th>'
     + '<th class="r">' + esc(o.missingLabel) + '</th><th class="r">' + esc(o.lossPctLabel) + '</th></tr></thead>'
     + '<tbody>' + orderRows + '</tbody></table>'

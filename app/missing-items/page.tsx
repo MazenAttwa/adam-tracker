@@ -15,6 +15,8 @@ interface OrderRow {
   received: number
   missing: number
   lossPct: number
+  photoUrl: string
+  stages: { label: string; qty: number }[]
 }
 
 export default function MissingItemsPage() {
@@ -36,10 +38,18 @@ export default function MissingItemsPage() {
   }, [profile, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchAll() {
-    const [{ data: orders }, { data: sd }] = await Promise.all([
+    const [{ data: orders }, { data: sd }, { data: photos }] = await Promise.all([
       supabase.from('orders').select('id, order_number, customer_name'),
       supabase.from('stage_data').select('order_id, stage, data'),
+      supabase.from('order_photos').select('order_id, file_path'),
     ])
+
+    const photoMap = new Map<string, string>()
+    ;((photos ?? []) as { order_id: string; file_path: string }[]).forEach(ph => {
+      if (!photoMap.has(ph.order_id) && ph.file_path) {
+        photoMap.set(ph.order_id, supabase.storage.from('product-photos').getPublicUrl(ph.file_path).data.publicUrl)
+      }
+    })
 
     const byOrder: Record<string, Record<string, Record<string, unknown>>> = {}
     ;((sd ?? []) as { order_id: string; stage: string; data: Record<string, unknown> }[]).forEach(r => {
@@ -80,6 +90,15 @@ export default function MissingItemsPage() {
           received: finalQty,
           missing,
           lossPct: (missing / expected) * 100,
+          photoUrl: photoMap.get(o.id) ?? '',
+          stages: [
+            { label: 'D', qty: expected },
+            { label: 'C', qty: cutting },
+            { label: 'P', qty: printing },
+            { label: 'F', qty: finishing },
+            { label: 'S', qty: submitted },
+            { label: 'R', qty: received },
+          ],
         })
 
         // Where was it lost? attribute the drop at each transition to that stage.
@@ -151,7 +170,7 @@ export default function MissingItemsPage() {
       generatedLabel: tr.generated ?? 'Generated',
       totalExpected, totalReceived, totalMissing, overallPct,
       expectedLabel: tr.expected, receivedLabel: tr.received, missingLabel: tr.missing, lossPctLabel: tr.lossPct,
-      orders: rows,
+      orders: rows.map(r => ({ ...r, photoUrl: r.photoUrl, stages: r.stages })),
       ordersHeading: tr.ordersWithLoss, orderLabel: tr.orders, productLabel: tr.customer,
       byStage, byStageHeading: tr.lossByStage, stageLabel: tr.stage, lostLabel: tr.missing,
       byManufacturer: byMfr, byManufacturerHeading: tr.lossByManufacturer,
@@ -222,8 +241,10 @@ export default function MissingItemsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="px-3 py-3"></th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.orders}</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">{tr.customer}</th>
+                    <th className="text-center px-5 py-3 font-medium text-gray-600">{tr.pieceJourney}</th>
                     <th className="text-right px-5 py-3 font-medium text-gray-600">{tr.expected}</th>
                     <th className="text-right px-5 py-3 font-medium text-gray-600">{tr.received}</th>
                     <th className="text-right px-5 py-3 font-medium text-gray-600">{tr.missing}</th>
@@ -233,8 +254,32 @@ export default function MissingItemsPage() {
                 <tbody>
                   {rows.map(r => (
                     <tr key={r.orderNumber} className={`border-b border-gray-50 last:border-0 ${r.lossPct >= 15 ? 'bg-red-50/60' : r.lossPct >= 5 ? 'bg-amber-50/50' : ''}`}>
+                      <td className="px-3 py-2">
+                        {r.photoUrl
+                          ? <img src={r.photoUrl} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+                          : <div className="w-10 h-10 rounded-lg bg-gray-100" />}
+                      </td>
                       <td className="px-5 py-3 font-medium text-[#0f1b35]">{r.orderNumber}</td>
                       <td className="px-5 py-3 text-gray-600">{r.product}</td>
+                      <td className="px-3 py-2">
+                        {(() => {
+                          const mx = Math.max(...r.stages.map(s => s.qty), 1)
+                          return (
+                            <div className="flex items-end justify-center gap-0.5 h-9 min-w-[110px]">
+                              {r.stages.map((s, i) => {
+                                const h = s.qty > 0 ? Math.max(Math.round((s.qty / mx) * 30), 2) : 2
+                                const color = i === 0 ? 'bg-[#0f1b35]' : s.qty === 0 ? 'bg-gray-200' : s.qty < r.expected ? 'bg-amber-400' : 'bg-green-500'
+                                return (
+                                  <div key={i} className="flex flex-col items-center gap-0.5" title={`${s.label}: ${s.qty}`}>
+                                    <div className={`w-2.5 rounded-sm ${color}`} style={{ height: h + 'px' }} />
+                                    <span className="text-[7px] text-gray-400 leading-none">{s.label}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )
+                        })()}
+                      </td>
                       <td className="px-5 py-3 text-right tabular-nums">{nf(r.expected)}</td>
                       <td className="px-5 py-3 text-right tabular-nums text-green-700">{nf(r.received)}</td>
                       <td className="px-5 py-3 text-right tabular-nums font-semibold text-red-600">{nf(r.missing)}</td>

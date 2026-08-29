@@ -6,6 +6,7 @@ import { useLang } from '@/contexts/LanguageContext'
 import { Badge } from '@/components/ui/Badge'
 import { STAGE_COLORS, STATUS_COLORS, STAGE_ORDER, STAGES } from '@/lib/stageConfig'
 import { formatDate } from '@/lib/utils'
+import { deadlineInfo } from '@/lib/deadline'
 import type { Order, Stage } from '@/lib/types'
 
 interface OrderCardProps {
@@ -206,6 +207,25 @@ export function OrderCard({ order, isDragging, onDragHandleDown }: OrderCardProp
           </Badge>
           <span className="text-xs text-gray-400">{formatDate(order.updated_at, lang)}</span>
         </div>
+
+        {(() => {
+          const di = deadlineInfo(order.deadline, order.status === 'completed')
+          if (di.status === 'none' || di.status === 'done') return null
+          const style =
+            di.status === 'overdue' ? 'bg-red-100 text-red-700 border-red-200'
+            : di.status === 'due-soon' ? 'bg-amber-100 text-amber-700 border-amber-200'
+            : 'bg-gray-100 text-gray-500 border-gray-200'
+          const label =
+            di.status === 'overdue' ? `${tr.overdue} ${Math.abs(di.days)} ${tr.daysLabel}`
+            : di.status === 'due-soon' ? (di.days === 0 ? tr.dueToday : `${tr.dueIn} ${di.days} ${tr.daysLabel}`)
+            : `${tr.due} ${formatDate(order.deadline as string, lang)}`
+          return (
+            <div className={`mt-2 inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${style}`}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+              {label}
+            </div>
+          )
+        })()}
       </Link>
     </div>
   )
