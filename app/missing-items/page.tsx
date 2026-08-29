@@ -257,8 +257,8 @@ export default function MissingItemsPage() {
                     <tr key={r.orderNumber} className={`border-b border-gray-50 last:border-0 ${r.lossPct >= 15 ? 'bg-red-50/60' : r.lossPct >= 5 ? 'bg-amber-50/50' : ''}`}>
                       <td className="px-3 py-2">
                         {r.photoUrl
-                          ? <img src={r.photoUrl} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
-                          : <div className="w-10 h-10 rounded-lg bg-gray-100" />}
+                          ? <img src={r.photoUrl} alt="" className="w-16 h-16 rounded-lg object-cover border border-gray-100" />
+                          : <div className="w-16 h-16 rounded-lg bg-gray-100" />}
                       </td>
                       <td className="px-5 py-3 font-medium text-[#0f1b35]">{r.orderNumber}</td>
                       <td className="px-5 py-3 text-gray-600">{r.product}</td>
