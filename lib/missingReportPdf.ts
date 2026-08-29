@@ -119,7 +119,7 @@ export function printMissingReport(o: MissingReportOptions) {
     + 'td{padding:6px 8px;border-bottom:1px solid #f2f2f2;} td.r{text-align:right;} td.miss{color:#dc2626;font-weight:700;}'
     + 'tr.hi td{background:#fef2f2;} tr.mid td{background:#fffbeb;}'
     + 'td.empty{text-align:center;color:#999;padding:14px;}'
-    + 'td.ph{width:64px;} td.ph img{width:58px;height:58px;object-fit:cover;border-radius:6px;border:1px solid #eee;}'
+    + 'td.ph{width:96px;} td.ph img{width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #eee;}'
     + '.bars{display:flex;align-items:flex-end;gap:2px;height:30px;}'
     + '.bwrap{display:flex;flex-direction:column;align-items:center;gap:1px;}'
     + '.bar{width:7px;border-radius:2px 2px 0 0;display:block;} .blab{font-size:6px;color:#aaa;line-height:1;}'
