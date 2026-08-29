@@ -162,6 +162,7 @@ export default function MissingItemsPage() {
   const totalMissing = rows.reduce((s, r) => s + r.missing, 0)
   const overallPct = totalExpected > 0 ? (totalMissing / totalExpected) * 100 : 0
   const nf = (n: number) => n.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB')
+  const stageName = (s: string): string => (tr as unknown as Record<string, string>)[s] ?? s
 
   function downloadPdf() {
     printMissingReport({
@@ -172,7 +173,7 @@ export default function MissingItemsPage() {
       expectedLabel: tr.expected, receivedLabel: tr.received, missingLabel: tr.missing, lossPctLabel: tr.lossPct,
       orders: rows.map(r => ({ ...r, photoUrl: r.photoUrl, stages: r.stages })),
       ordersHeading: tr.ordersWithLoss, orderLabel: tr.orders, productLabel: tr.customer,
-      byStage, byStageHeading: tr.lossByStage, stageLabel: tr.stage, lostLabel: tr.missing,
+      byStage: byStage.map(s => ({ stage: stageName(s.stage), lost: s.lost })), byStageHeading: tr.lossByStage, stageLabel: tr.stage, lostLabel: tr.missing,
       byManufacturer: byMfr, byManufacturerHeading: tr.lossByManufacturer,
       manufacturerLabel: tr.manufacturers, handledLabel: tr.quantity,
     })
@@ -299,13 +300,14 @@ export default function MissingItemsPage() {
               <h2 className="font-semibold text-[#0f1b35] flex items-center gap-2">
                 <span className="w-1 h-5 bg-[#c9a84c] rounded-full" />{tr.lossByStage}
               </h2>
+              <p className="text-xs text-gray-400 mt-1">{tr.lossByStageHint}</p>
             </div>
             {byStage.length === 0 ? <p className="text-sm text-gray-400 text-center py-6">{tr.noData}</p> : (
               <div className="divide-y divide-gray-50">
                 {byStage.map(s => (
                   <div key={s.stage} className="flex items-center justify-between px-5 py-3">
-                    <span className="text-sm text-[#0f1b35] capitalize">{s.stage}</span>
-                    <span className="text-sm font-semibold tabular-nums text-red-600">{nf(s.lost)}</span>
+                    <span className="text-sm text-[#0f1b35]">{tr.lostAt} {stageName(s.stage)}</span>
+                    <span className="text-sm font-semibold tabular-nums text-red-600">{nf(s.lost)} {tr.pcs}</span>
                   </div>
                 ))}
               </div>
