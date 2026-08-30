@@ -147,6 +147,51 @@ export default function MaterialsReportPage() {
   const fmt = (n: number) => n.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const nf = (n: number) => n.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB')
 
+  function downloadExcel() {
+    const q = (v: string | number) => {
+      const s = String(v ?? '')
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+    }
+    const n2 = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
+    const lines: string[] = []
+
+    // Summary block
+    lines.push(q(tr.materialsReport))
+    lines.push([q(tr.totalPurchasedValue), n2(totalPurchased)].join(','))
+    lines.push([q(tr.currentStockValue), n2(totalStockValue)].join(','))
+    lines.push([q(tr.consumedValue), n2(totalConsumed)].join(','))
+    lines.push([q(tr.totalPaid), n2(totalPaid)].join(','))
+    lines.push([q(tr.remaining), n2(totalRemainingOwed)].join(','))
+    lines.push('')
+
+    // Purchases by vendor
+    lines.push(q(tr.purchasesByVendor))
+    lines.push([tr.vendor, tr.materials, tr.purchasedValue, tr.totalPaid, tr.remaining].map(q).join(','))
+    vendors.forEach(v => {
+      lines.push([q(v.name), v.materials, n2(v.purchasedValue), n2(v.paid), n2(v.remaining)].join(','))
+    })
+    lines.push([q(tr.total), '', n2(vendors.reduce((s, v) => s + v.purchasedValue, 0)), n2(totalPaid), n2(totalRemainingOwed)].join(','))
+    lines.push('')
+
+    // Materials breakdown
+    lines.push(q(tr.materialsBreakdown))
+    lines.push([tr.materialName, tr.vendor, tr.unit, tr.purchasedQty, tr.costPerUnit, tr.purchasedValue, tr.currentQty, tr.currentStockValue, tr.consumedValue].map(q).join(','))
+    rows.forEach(r => {
+      lines.push([q(r.name), q(r.vendorName), q(r.unit), n2(r.purchasedQty), n2(r.costPerUnit), n2(r.purchasedValue), n2(r.currentQty), n2(r.currentValue), n2(r.consumedValue)].join(','))
+    })
+    lines.push([q(tr.total), '', '', '', '', n2(totalPurchased), '', n2(totalStockValue), n2(totalConsumed)].join(','))
+
+    // BOM makes Excel read UTF-8 (so Arabic + numbers render correctly)
+    const csv = '\uFEFF' + lines.join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'materials-report-' + new Date().toISOString().slice(0, 10) + '.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   function downloadPdf() {
     printMaterialsReport({
       brandName: 'Adam Store',
@@ -192,13 +237,22 @@ export default function MaterialsReportPage() {
             </h1>
             <p className="text-gray-500 mt-1"><BrandName /></p>
           </div>
-          <button
-            onClick={downloadPdf}
-            className="flex items-center gap-2 rounded-lg bg-[#0f1b35] text-white hover:bg-[#0f1b35]/90 transition-colors px-4 py-2 text-sm font-medium"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
-            {tr.printPdf}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={downloadExcel}
+              className="flex items-center gap-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors px-4 py-2 text-sm font-medium"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /><line x1="10" y1="9" x2="11" y2="9" /></svg>
+              {tr.downloadExcel}
+            </button>
+            <button
+              onClick={downloadPdf}
+              className="flex items-center gap-2 rounded-lg bg-[#0f1b35] text-white hover:bg-[#0f1b35]/90 transition-colors px-4 py-2 text-sm font-medium"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+              {tr.printPdf}
+            </button>
+          </div>
         </div>
 
         {/* Totals */}
