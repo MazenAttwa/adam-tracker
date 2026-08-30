@@ -35,6 +35,7 @@ export function Navbar() {
           { href: '/sales', label: tr.sales },
           { href: '/statements', label: tr.statements },
           { href: '/missing-items', label: tr.missingItemsReport },
+          { href: '/materials-report', label: tr.materialsReport },
           { href: '/vendors', label: tr.vendors },
           { href: '/manufacturers', label: tr.manufacturers },
           { href: '/retailers', label: tr.retailers },
@@ -62,6 +63,7 @@ export function Navbar() {
       case '/vendors': case '/logistics': return wrap(<><rect x="1" y="3" width="15" height="13" /><path d="M16 8h4l3 3v5h-7V8z" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></>)
       case '/manufacturers': return wrap(<><path d="M2 20h20" /><path d="M4 20V8l6 4V8l6 4V6l4 2v12" /></>)
       case '/retailers': return wrap(<><path d="M3 9l1-5h16l1 5" /><path d="M4 9v11h16V9" /><path d="M9 20v-6h6v6" /></>)
+      case '/materials-report': return wrap(<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></>)
       case '/missing-items': return wrap(<><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></>)
       case '/statements': return wrap(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M8 13h8" /><path d="M8 17h5" /></>)
       case '/backup': return wrap(<><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14a9 3 0 0 0 18 0V5" /><path d="M3 12a9 3 0 0 0 18 0" /></>)
