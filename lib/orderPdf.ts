@@ -98,6 +98,29 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     return '<div class="section"><h2>' + STAGE_TITLES[st] + '</h2><table class="kv"><tbody>' + fieldRows + notes + '</tbody></table>' + mfrHtml + '</div>'
   }).filter(Boolean).join('')
 
+  // Fabric-swatch stamp boxes: staple a physical piece of each material here.
+  let swatchLabels: string[] = []
+  try {
+    const { data: oms } = await supabase
+      .from('order_materials')
+      .select('quantity_needed, materials(name, unit)')
+      .eq('order_id', order.id)
+    const list = ((oms ?? []) as unknown as { quantity_needed: number; materials: { name: string; unit: string } | { name: string; unit: string }[] | null }[])
+      .map(r => {
+        const m = Array.isArray(r.materials) ? r.materials[0] : r.materials
+        return m?.name ? (m.name + (r.quantity_needed ? ' - ' + r.quantity_needed + ' ' + (m.unit ?? '') : '')) : ''
+      })
+      .filter(Boolean)
+    swatchLabels = list
+  } catch { /* ignore */ }
+  // Always show at least 4 boxes; pad blanks so there is room to add more by hand.
+  while (swatchLabels.length < 4) swatchLabels.push('')
+  const swatchBoxes = swatchLabels.map(lbl =>
+    '<div class="swatch"><div class="swatch-box"></div><div class="swatch-lbl">' + (lbl ? esc(lbl) : '&nbsp;') + '</div></div>'
+  ).join('')
+  const swatchHtml = '<div class="section swatch-sec"><h2>Material Samples (staple physical swatch)</h2>'
+    + '<div class="swatches">' + swatchBoxes + '</div></div>'
+
   const created = new Date(order.created_at).toLocaleDateString('en-GB')
   const now = new Date().toLocaleString('en-GB')
   const stageTitle = STAGE_TITLES[order.current_stage] ?? order.current_stage
@@ -126,6 +149,10 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     + '.pj-val{font-size:12px;font-weight:700;margin-bottom:2px;} .pj-bar{width:26px;border-radius:4px 4px 0 0;}'
     + '.pj-lab{font-size:10px;color:#555;margin-top:4px;text-align:center;} .pj-diff{font-size:10px;font-weight:600;}'
     + '.pj-foot{font-size:9.5px;color:#999;margin-top:6px;}'
+    + '.swatch-sec{break-inside:avoid;margin-top:10px;} .swatches{display:flex;gap:12px;flex-wrap:wrap;}'
+    + '.swatch{display:flex;flex-direction:column;align-items:center;width:120px;}'
+    + '.swatch-box{width:120px;height:120px;border:1.5px dashed #c9a84c;border-radius:6px;background:repeating-linear-gradient(45deg,#fafafa,#fafafa 6px,#f2f2ec 6px,#f2f2ec 12px);}'
+    + '.swatch-lbl{font-size:9px;color:#555;text-align:center;margin-top:4px;min-height:22px;border-bottom:1px solid #ddd;width:100%;padding-bottom:2px;}'
     + '.footer{margin-top:12px;text-align:center;color:#aaa;font-size:9px;}'
     + '</style></head><body>'
     + '<div class="head"><div class="brand">Adam Store<small>Manufacturing Tracker</small></div>'
@@ -133,6 +160,7 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     + '<div class="cust"><strong>' + esc(order.customer_name) + '</strong>' + phone + '</div>'
     + '<div class="sections">' + sections + '</div>'
     + photosHtml
+    + swatchHtml
     + pj
     + '<div class="footer">Adam Store &mdash; Generated ' + now + '</div>'
     + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}</script>'
