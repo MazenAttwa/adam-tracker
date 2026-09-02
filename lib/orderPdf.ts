@@ -142,7 +142,7 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     + '<tr>' + cell('العدد المطلوب', draftQty) + cell('نوع القماش', fabricType) + cell('طول الفرشة', '') + '</tr>'
     + '<tr>' + cell('نسبة القص', '') + cell('عدد القطع بالفرشة', '') + cell('تاريخ القص', '') + '</tr>'
     + '<tr>' + cell('اجمالي وزن القماش', '') + cell('وزن الكولاريت', '') + cell('وزن القطعة', '') + '</tr>'
-    + '<tr><td class="wo-c" colspan="3"><span class="wo-l">وصف الموديل</span><span class="wo-v">' + (designNotes || sizeDetails || '&nbsp;') + '</span></td></tr>'
+    + '<tr><td class="wo-c" colspan="3"><span class="wo-l">وصف الموديل</span><span class="wo-v">' + ('&nbsp;') + '</span></td></tr>'
     + '</tbody></table>'
 
     + '<div class="wo-sub">المقاسات</div>'
