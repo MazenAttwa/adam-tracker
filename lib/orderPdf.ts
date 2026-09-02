@@ -138,7 +138,7 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     '<div class="wo" dir="rtl">'
     + '<div class="wo-title">أمر تشغيل موديل</div>'
     + '<table class="wo-t"><tbody>'
-    + '<tr>' + cell('رقم الموديل', esc(order.order_number)) + cell('اسم العميل', esc(order.customer_name)) + cell('وزن المفرش', '') + '</tr>'
+    + '<tr>' + cell('رقم الموديل', '') + cell('اسم العميل', '') + cell('وزن المفرش', '') + '</tr>'
     + '<tr>' + cell('العدد المطلوب', draftQty) + cell('نوع القماش', fabricType) + cell('طول الفرشة', '') + '</tr>'
     + '<tr>' + cell('نسبة القص', '') + cell('عدد القطع بالفرشة', '') + cell('تاريخ القص', '') + '</tr>'
     + '<tr>' + cell('اجمالي وزن القماش', '') + cell('وزن الكولاريت', '') + cell('وزن القطعة', '') + '</tr>'
