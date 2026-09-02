@@ -218,13 +218,16 @@ async function buildOrderBody(order: Order, stageDataMap: Record<string, StageDa
 
 // Open a print window for ONE order.
 export async function downloadOrderPdf(order: Order, stageDataMap: Record<string, StageData>) {
+  const w = window.open('', '_blank', 'width=900,height=700')
+  if (!w) { alert('Please allow pop-ups for this site, then try again.'); return }
+  w.document.write('<!DOCTYPE html><html><body style="font-family:Arial;padding:40px;">Preparing order&hellip;</body></html>')
+
   const body = await buildOrderBody(order, stageDataMap)
   const html = ORDER_PDF_STYLES
     + '<style>.order-page{page-break-after:always;} .order-page:last-child{page-break-after:auto;}</style>'
     + body
     + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}</script></body></html>'
-  const w = window.open('', '_blank', 'width=900,height=700')
-  if (w) { w.document.write(html); w.document.close() }
+  try { w.document.open(); w.document.write(html); w.document.close() } catch { /* closed */ }
 }
 
 // Open ONE print window containing every given order (one page each).
@@ -233,15 +236,36 @@ export async function downloadAllOrdersPdf(
   onProgress?: (done: number, total: number) => void,
 ) {
   if (!items.length) return
+
+  // Open the window NOW, during the click gesture, so the browser does not block it.
+  const w = window.open('', '_blank', 'width=900,height=700')
+  if (!w) {
+    alert('Please allow pop-ups for this site, then try again.')
+    return
+  }
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Orders</title></head>'
+    + '<body style="font-family:Arial;padding:40px;color:#333;">'
+    + '<h2>Preparing ' + items.length + ' order(s)&hellip;</h2>'
+    + '<p id="prog">Loading 0 / ' + items.length + '</p></body></html>')
+
   const bodies: string[] = []
   for (let i = 0; i < items.length; i++) {
     bodies.push(await buildOrderBody(items[i].order, items[i].stageDataMap))
     onProgress?.(i + 1, items.length)
+    try {
+      const el = w.document.getElementById('prog')
+      if (el) el.textContent = 'Loading ' + (i + 1) + ' / ' + items.length
+    } catch { /* window may be closed */ }
   }
+
   const html = ORDER_PDF_STYLES
     + '<style>.order-page{page-break-after:always;} .order-page:last-child{page-break-after:auto;}</style>'
     + bodies.join('')
     + '<script>window.onload=function(){setTimeout(function(){window.print()},600)}</script></body></html>'
-  const w = window.open('', '_blank', 'width=900,height=700')
-  if (w) { w.document.write(html); w.document.close() }
+
+  try {
+    w.document.open()
+    w.document.write(html)
+    w.document.close()
+  } catch { /* window closed by user */ }
 }
