@@ -167,19 +167,19 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
   const pj = pieceJourneyHtml(stageDataMap)
 
   const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(order.order_number) + '</title><style>'
-    + '@page{size:A4;margin:9mm;}'
+    + '@page{size:A4;margin:7mm;}'
     + '*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
-    + 'html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact;} body{font-family:Arial,Helvetica,sans-serif;color:#0f1b35;margin:0;padding:0;font-size:10.5px;line-height:1.35;}'
+    + 'html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact;} body{font-family:Arial,Helvetica,sans-serif;color:#0f1b35;margin:0;padding:0;font-size:9px;line-height:1.25;}'
     + '.head{border-bottom:2.5px solid #c9a84c;padding-bottom:7px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:flex-start;}'
     + '.brand{font-size:17px;font-weight:800;} .brand small{display:block;font-size:10px;color:#888;font-weight:400;}'
     + '.ordno{font-size:15px;font-weight:800;text-align:right;} .meta{font-size:10px;color:#555;text-align:right;margin-top:3px;}'
     + '.cust{background:#f5f5f0;border-radius:6px;padding:7px 11px;margin-bottom:9px;font-size:11px;}'
     + '.sections{column-count:2;column-gap:14px;}'
-    + '.section{margin-bottom:9px;break-inside:avoid;-webkit-column-break-inside:avoid;}'
+    + '.section{margin-bottom:5px;break-inside:avoid;-webkit-column-break-inside:avoid;}'
     + '.section h2{font-size:11.5px;margin:0 0 3px;padding-bottom:2px;border-bottom:1px solid #eee;color:#c9a84c;}'
     + 'table.kv{width:100%;border-collapse:collapse;} table.kv td{padding:2px 5px;border-bottom:1px solid #f4f4f4;vertical-align:top;} td.lbl{color:#888;width:42%;}'
     + 'table.mfr{width:100%;border-collapse:collapse;margin-top:4px;font-size:9.5px;} table.mfr th,table.mfr td{padding:2px 4px;border:1px solid #eee;text-align:left;} table.mfr th{background:#f5f5f0;}'
-    + '.photos-sec{break-inside:avoid;} .photos{display:flex;flex-wrap:wrap;gap:10px;} .photos img{width:176px;height:176px;object-fit:cover;border-radius:6px;border:1px solid #eee;}'
+    + '.photos-sec{break-inside:avoid;} .photos{display:flex;flex-wrap:wrap;gap:6px;} .photos img{width:92px;height:92px;object-fit:cover;border-radius:5px;border:1px solid #eee;}'
     + '.pj{break-inside:avoid;margin-top:6px;} .pj h2{color:#0f1b35;border:none;font-size:13px;margin:0;} .pj-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}'
     + '.pj-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;} .pj-bad{color:#dc2626;background:#fef2f2;} .pj-ok{color:#16a34a;background:#f0fdf4;}'
     + '.pj-bars{display:flex;align-items:flex-end;gap:8px;}'
@@ -189,12 +189,12 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     + '.pj-lab{font-size:10px;color:#555;margin-top:4px;text-align:center;} .pj-diff{font-size:10px;font-weight:600;}'
     + '.pj-foot{font-size:9.5px;color:#999;margin-top:6px;}'
     + '.swatch-sec{break-inside:avoid;margin-top:10px;} .swatches{display:flex;gap:12px;flex-wrap:wrap;}'
-    + '.swatch{display:flex;flex-direction:column;align-items:center;width:120px;}'
-    + '.swatch-box{width:120px;height:120px;border:1.5px dashed #c9a84c;border-radius:6px;background:repeating-linear-gradient(45deg,#fafafa,#fafafa 6px,#f2f2ec 6px,#f2f2ec 12px);}'
+    + '.swatch{display:flex;flex-direction:column;align-items:center;width:76px;}'
+    + '.swatch-box{width:76px;height:76px;border:1.5px dashed #c9a84c;border-radius:6px;background:repeating-linear-gradient(45deg,#fafafa,#fafafa 5px,#f2f2ec 5px,#f2f2ec 10px);}'
     + '.swatch-lbl{font-size:9px;color:#555;text-align:center;margin-top:4px;min-height:22px;border-bottom:1px solid #ddd;width:100%;padding-bottom:2px;}'
-    + '.wo{margin-top:14px;page-break-before:always;break-before:page;}'
+    + '.wo{margin-top:8px;}'
     + '.wo-title{font-size:15px;font-weight:800;text-align:center;background:#0f1b35;color:#fff;padding:6px;border-radius:5px;margin-bottom:8px;}'
-    + '.wo-sub{font-size:12px;font-weight:700;color:#0f1b35;background:#f5f5f0;padding:4px 8px;border-radius:4px;margin:10px 0 4px;}'
+    + '.wo-sub{font-size:11px;font-weight:700;color:#0f1b35;background:#f5f5f0;padding:3px 8px;border-radius:4px;margin:7px 0 3px;}'
     + '.wo-t{width:100%;border-collapse:collapse;} .wo-t td.wo-c{border:1px solid #ccc;padding:4px 6px;vertical-align:top;width:33%;}'
     + '.wo-l{display:block;font-size:8.5px;color:#888;} .wo-v{display:block;font-size:11px;font-weight:600;min-height:16px;}'
     + '.wo-grid{width:100%;border-collapse:collapse;} .wo-grid th,.wo-grid td{border:1px solid #ccc;padding:5px 4px;font-size:9.5px;text-align:center;} .wo-grid th{background:#f5f5f0;font-weight:700;} .wo-grid td{height:26px;}'
@@ -206,7 +206,6 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     + '<div class="sections">' + sections + '</div>'
     + photosHtml
     + swatchHtml
-    + pj
     + workOrderHtml
     + '<div class="footer">Adam Store &mdash; Generated ' + now + '</div>'
     + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}</script>'
