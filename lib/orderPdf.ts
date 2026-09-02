@@ -24,6 +24,8 @@ const ORDER = ['draft', 'preparation', 'cutting', 'printing', 'finishing', 'subm
 function esc(s: string) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
 function pretty(k: string) { return LABELS[k] ?? k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }
 
+let ORDER_PDF_STYLES = ''
+
 function pieceJourneyHtml(stageDataMap: Record<string, StageData>): string {
   const num = (stage: string, key: string) => {
     const v = (stageDataMap[stage]?.data as Record<string, unknown> | undefined)?.[key]
@@ -65,7 +67,7 @@ function pieceJourneyHtml(stageDataMap: Record<string, StageData>): string {
     + '<p class="pj-foot">Expected: ' + expected + ' &middot; Received: ' + (steps[5].qty || '-') + '</p></div>'
 }
 
-export async function downloadOrderPdf(order: Order, stageDataMap: Record<string, StageData>) {
+async function buildOrderBody(order: Order, stageDataMap: Record<string, StageData>): Promise<string> {
   const supabase = createClient()
   let photosHtml = ''
   try {
@@ -166,7 +168,7 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
   const phone = order.customer_phone ? ' &middot; ' + esc(order.customer_phone) : ''
   const pj = pieceJourneyHtml(stageDataMap)
 
-  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(order.order_number) + '</title><style>'
+  const stylesOnly = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(order.order_number) + '</title><style>'
     + '@page{size:A4;margin:7mm;}'
     + '*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     + 'html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact;} body{font-family:Arial,Helvetica,sans-serif;color:#0f1b35;margin:0;padding:0;font-size:9px;line-height:1.25;}'
@@ -200,7 +202,9 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     + '.wo-grid{width:100%;border-collapse:collapse;} .wo-grid th,.wo-grid td{border:1px solid #ccc;padding:5px 4px;font-size:9.5px;text-align:center;} .wo-grid th{background:#f5f5f0;font-weight:700;} .wo-grid td{height:26px;}'
     + '.footer{margin-top:12px;text-align:center;color:#aaa;font-size:9px;}'
     + '</style></head><body>'
-    + '<div class="head"><div class="brand">Adam Store<small>Manufacturing Tracker</small></div>'
+  ORDER_PDF_STYLES = stylesOnly
+  const body = ''
+    + '<div class="order-page"><div class="head"><div class="brand">Adam Store<small>Manufacturing Tracker</small></div>'
     + '<div><div class="ordno">' + esc(order.order_number) + '</div><div class="meta">' + stageTitle + ' &middot; ' + esc(order.status) + '<br>' + created + '</div></div></div>'
     + '<div class="cust"><strong>' + esc(order.customer_name) + '</strong>' + phone + '</div>'
     + '<div class="sections">' + sections + '</div>'
@@ -208,9 +212,36 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     + swatchHtml
     + workOrderHtml
     + '<div class="footer">Adam Store &mdash; Generated ' + now + '</div>'
-    + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}</script>'
-    + '</body></html>'
+    + '</div>'
+  return body
+}
 
+// Open a print window for ONE order.
+export async function downloadOrderPdf(order: Order, stageDataMap: Record<string, StageData>) {
+  const body = await buildOrderBody(order, stageDataMap)
+  const html = ORDER_PDF_STYLES
+    + '<style>.order-page{page-break-after:always;} .order-page:last-child{page-break-after:auto;}</style>'
+    + body
+    + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}</script></body></html>'
+  const w = window.open('', '_blank', 'width=900,height=700')
+  if (w) { w.document.write(html); w.document.close() }
+}
+
+// Open ONE print window containing every given order (one page each).
+export async function downloadAllOrdersPdf(
+  items: { order: Order; stageDataMap: Record<string, StageData> }[],
+  onProgress?: (done: number, total: number) => void,
+) {
+  if (!items.length) return
+  const bodies: string[] = []
+  for (let i = 0; i < items.length; i++) {
+    bodies.push(await buildOrderBody(items[i].order, items[i].stageDataMap))
+    onProgress?.(i + 1, items.length)
+  }
+  const html = ORDER_PDF_STYLES
+    + '<style>.order-page{page-break-after:always;} .order-page:last-child{page-break-after:auto;}</style>'
+    + bodies.join('')
+    + '<script>window.onload=function(){setTimeout(function(){window.print()},600)}</script></body></html>'
   const w = window.open('', '_blank', 'width=900,height=700')
   if (w) { w.document.write(html); w.document.close() }
 }

@@ -10,7 +10,8 @@ import { OrderCard } from '@/components/orders/OrderCard'
 import { ProductionGantt, type DragOrder } from '@/components/orders/ProductionGantt'
 import { STAGES, STAGE_COLORS } from '@/lib/stageConfig'
 import { cn } from '@/lib/utils'
-import type { Order, Stage, OrderStatus } from '@/lib/types'
+import type { Order, Stage, OrderStatus, StageData } from '@/lib/types'
+import { downloadAllOrdersPdf } from '@/lib/orderPdf'
 
 export default function OrdersPage() {
   const { profile, loading } = useAuth()
@@ -19,6 +20,8 @@ export default function OrdersPage() {
   const supabase = createClient()
 
   const [orders, setOrders] = useState<Order[]>([])
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 })
   const [fetching, setFetching] = useState(true)
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState<Stage | 'all'>('all')
@@ -88,6 +91,24 @@ export default function OrdersPage() {
     setFetching(false)
   }
 
+  async function handleDownloadAll(list: Order[]) {
+    if (bulkBusy || list.length === 0) return
+    setBulkBusy(true)
+    setBulkProgress({ done: 0, total: list.length })
+    try {
+      const items: { order: Order; stageDataMap: Record<string, StageData> }[] = []
+      for (const o of list) {
+        const { data: sd } = await supabase.from('stage_data').select('*').eq('order_id', o.id)
+        const map: Record<string, StageData> = {}
+        ;((sd ?? []) as StageData[]).forEach(r => { map[r.stage] = r })
+        items.push({ order: o, stageDataMap: map })
+      }
+      await downloadAllOrdersPdf(items, (done, total) => setBulkProgress({ done, total }))
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   const filtered = orders.filter(o => {
     if (search &&
         !o.order_number.toLowerCase().includes(search.toLowerCase()) &&
@@ -127,6 +148,18 @@ export default function OrdersPage() {
         {/* Page title */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-[#0f1b35] flex items-center gap-2.5"><span className="w-1.5 h-7 bg-[#c9a84c] rounded-full" />{tr.orders}</h1>
+          <div className="flex items-center gap-2">
+          {profile?.role === 'manager' && filtered.length > 0 && (
+            <button
+              onClick={() => handleDownloadAll(filtered)}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-2 bg-white border border-gray-200 text-[#0f1b35] px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+              title={tr.downloadAllPdf}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              {bulkBusy ? `${bulkProgress.done}/${bulkProgress.total}` : tr.downloadAllPdf}
+            </button>
+          )}
           {profile?.role === 'manager' && (
             <Link href="/orders/new"
               className="inline-flex items-center gap-2 bg-[#0f1b35] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#1a2d55] transition-colors">
@@ -136,6 +169,7 @@ export default function OrdersPage() {
               {tr.newOrder}
             </Link>
           )}
+          </div>
         </div>
 
         {/* Filters */}
