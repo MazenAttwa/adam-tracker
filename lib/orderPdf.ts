@@ -121,6 +121,45 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
   const swatchHtml = '<div class="section swatch-sec"><h2>Material Samples (staple physical swatch)</h2>'
     + '<div class="swatches">' + swatchBoxes + '</div></div>'
 
+  // ----- Arabic production work order (امر تشغيل) -----
+  const dget = (stage: string, key: string): string => {
+    const v = (stageDataMap[stage]?.data as Record<string, unknown> | undefined)?.[key]
+    return (v === undefined || v === null || v === '') ? '' : esc(String(v))
+  }
+  const draftQty = dget('draft', 'quantity')
+  const fabricType = dget('preparation', 'fabric_type') || dget('preparation', 'fabric_description')
+  const sizeDetails = dget('draft', 'size_details')
+  const designNotes = dget('draft', 'design_notes')
+  // cell: label + value (value blank = a line to write on)
+  const cell = (label: string, value: string) =>
+    '<td class="wo-c"><span class="wo-l">' + label + '</span><span class="wo-v">' + (value || '&nbsp;') + '</span></td>'
+
+  const workOrderHtml =
+    '<div class="wo" dir="rtl">'
+    + '<div class="wo-title">أمر تشغيل موديل</div>'
+    + '<table class="wo-t"><tbody>'
+    + '<tr>' + cell('رقم الموديل', esc(order.order_number)) + cell('اسم العميل', esc(order.customer_name)) + cell('وزن المفرش', '') + '</tr>'
+    + '<tr>' + cell('العدد المطلوب', draftQty) + cell('نوع القماش', fabricType) + cell('طول الفرشة', '') + '</tr>'
+    + '<tr>' + cell('نسبة القص', '') + cell('عدد القطع بالفرشة', '') + cell('تاريخ القص', '') + '</tr>'
+    + '<tr>' + cell('اجمالي وزن القماش', '') + cell('وزن الكولاريت', '') + cell('وزن القطعة', '') + '</tr>'
+    + '<tr><td class="wo-c" colspan="3"><span class="wo-l">وصف الموديل</span><span class="wo-v">' + (designNotes || sizeDetails || '&nbsp;') + '</span></td></tr>'
+    + '</tbody></table>'
+
+    + '<div class="wo-sub">المقاسات</div>'
+    + '<table class="wo-grid"><thead><tr>'
+    + '<th>اللون</th><th>اجمالي العدد</th><th>المقاسات</th><th>مواصفات طباعة وتطريز</th><th>اسم العميل</th><th>ملاحظات</th>'
+    + '</tr></thead><tbody>'
+    + ('<tr>' + '<td></td>'.repeat(6) + '</tr>').repeat(4)
+    + '</tbody></table>'
+
+    + '<div class="wo-sub">قسم التعبئة أو المخزن</div>'
+    + '<table class="wo-grid"><thead><tr>'
+    + '<th>اللون</th><th>عدد التسليم</th><th>تسليم رقم كام</th><th>تاريخ التسليم</th><th>اسم العميل</th><th>تجميع</th>'
+    + '</tr></thead><tbody>'
+    + ('<tr>' + '<td></td>'.repeat(6) + '</tr>').repeat(4)
+    + '</tbody></table>'
+    + '</div>'
+
   const created = new Date(order.created_at).toLocaleDateString('en-GB')
   const now = new Date().toLocaleString('en-GB')
   const stageTitle = STAGE_TITLES[order.current_stage] ?? order.current_stage
@@ -153,6 +192,12 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     + '.swatch{display:flex;flex-direction:column;align-items:center;width:120px;}'
     + '.swatch-box{width:120px;height:120px;border:1.5px dashed #c9a84c;border-radius:6px;background:repeating-linear-gradient(45deg,#fafafa,#fafafa 6px,#f2f2ec 6px,#f2f2ec 12px);}'
     + '.swatch-lbl{font-size:9px;color:#555;text-align:center;margin-top:4px;min-height:22px;border-bottom:1px solid #ddd;width:100%;padding-bottom:2px;}'
+    + '.wo{margin-top:14px;page-break-before:always;break-before:page;}'
+    + '.wo-title{font-size:15px;font-weight:800;text-align:center;background:#0f1b35;color:#fff;padding:6px;border-radius:5px;margin-bottom:8px;}'
+    + '.wo-sub{font-size:12px;font-weight:700;color:#0f1b35;background:#f5f5f0;padding:4px 8px;border-radius:4px;margin:10px 0 4px;}'
+    + '.wo-t{width:100%;border-collapse:collapse;} .wo-t td.wo-c{border:1px solid #ccc;padding:4px 6px;vertical-align:top;width:33%;}'
+    + '.wo-l{display:block;font-size:8.5px;color:#888;} .wo-v{display:block;font-size:11px;font-weight:600;min-height:16px;}'
+    + '.wo-grid{width:100%;border-collapse:collapse;} .wo-grid th,.wo-grid td{border:1px solid #ccc;padding:5px 4px;font-size:9.5px;text-align:center;} .wo-grid th{background:#f5f5f0;font-weight:700;} .wo-grid td{height:26px;}'
     + '.footer{margin-top:12px;text-align:center;color:#aaa;font-size:9px;}'
     + '</style></head><body>'
     + '<div class="head"><div class="brand">Adam Store<small>Manufacturing Tracker</small></div>'
@@ -162,6 +207,7 @@ export async function downloadOrderPdf(order: Order, stageDataMap: Record<string
     + photosHtml
     + swatchHtml
     + pj
+    + workOrderHtml
     + '<div class="footer">Adam Store &mdash; Generated ' + now + '</div>'
     + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}</script>'
     + '</body></html>'
