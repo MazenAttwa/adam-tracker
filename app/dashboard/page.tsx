@@ -59,7 +59,7 @@ export default function DashboardPage() {
       query = query.eq('current_stage', profile.assigned_stage)
     }
 
-    const { data } = await query.limit(50)
+    const { data } = await query.limit(2000)
     setOrders(data ?? [])
     setFetching(false)
   }
