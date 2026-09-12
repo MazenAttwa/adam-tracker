@@ -34,7 +34,7 @@ export default function AuditPage() {
   }, [loading, profile])
 
   async function fetchData() {
-    const { data } = await supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(500)
+    const { data } = await supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(2000)
     setRows((data ?? []) as AuditEntry[])
     setFetching(false)
   }

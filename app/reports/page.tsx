@@ -243,7 +243,7 @@ export default function ReportsPage() {
 
   async function fetchProfitData() {
     const [{ data: ords }, { data: sd }, { data: oms }, { data: mats }] = await Promise.all([
-      supabase.from('orders').select('id, order_number, customer_name, created_at').limit(1000),
+      supabase.from('orders').select('id, order_number, customer_name, created_at').limit(5000),
       supabase.from('stage_data').select('order_id, stage, data'),
       supabase.from('order_materials').select('order_id, quantity_needed, material_id'),
       supabase.from('materials').select('id, cost_per_unit'),
@@ -312,7 +312,7 @@ export default function ReportsPage() {
   }
 
   async function fetchOrdersData() {
-    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(500)
+    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(5000)
     setOrders((data ?? []) as Order[])
   }
 
@@ -320,7 +320,7 @@ export default function ReportsPage() {
     const { data: movements } = await supabase
       .from('stock_movements')
       .select('material_id, type, quantity, materials(id, name, code, unit)')
-      .limit(1000)
+      .limit(5000)
 
     const map = new Map<string, MaterialUsage>()
     for (const mv of (movements ?? [])) {

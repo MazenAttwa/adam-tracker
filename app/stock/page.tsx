@@ -64,7 +64,7 @@ export default function StockPage() {
       .from('stock_movements')
       .select('*, materials(id, name, code, unit), orders(order_number), vendors(id, name)')
       .order('created_at', { ascending: false })
-      .limit(200)
+      .limit(2000)
     setMovements(data ?? [])
   }
 
@@ -92,7 +92,7 @@ export default function StockPage() {
   async function fetchOrders() {
     const { data } = await supabase
       .from('orders').select('id, order_number').eq('status', 'active')
-      .order('order_number', { ascending: false }).limit(100)
+      .order('order_number', { ascending: false }).limit(500)
     setOrders(data ?? [])
   }
 

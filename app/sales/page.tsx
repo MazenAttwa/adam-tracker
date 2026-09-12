@@ -90,7 +90,7 @@ export default function SalesPage() {
       .from('sales')
       .select('*, retailers(id, name, phone, address), orders(order_number)')
       .order('date', { ascending: false })
-      .limit(200)
+      .limit(2000)
     setSales(data ?? [])
   }
 
@@ -102,7 +102,7 @@ export default function SalesPage() {
   async function fetchOrders() {
     const { data } = await supabase
       .from('orders').select('id, order_number').eq('status', 'active')
-      .order('order_number', { ascending: false }).limit(100)
+      .order('order_number', { ascending: false }).limit(500)
     setOrders(data ?? [])
   }
 

@@ -171,7 +171,7 @@ export default function FinancePage() {
       supabase.from('revenue').select('*, orders(order_number)').gte('date', cutoff).order('date', { ascending: false }),
       supabase.from('month_closes').select('*').order('year_month', { ascending: false }),
       supabase.from('vendors').select('*').order('name'),
-      supabase.from('orders').select('id, order_number').order('order_number', { ascending: false }).limit(200),
+      supabase.from('orders').select('id, order_number').order('order_number', { ascending: false }).limit(2000),
     ])
     setExpenses(exp ?? [])
     setRevenue(rev ?? [])
