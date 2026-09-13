@@ -24,6 +24,8 @@ export default function OrdersPage() {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 })
   const [fetching, setFetching] = useState(true)
   const [search, setSearch] = useState('')
+  const [numFrom, setNumFrom] = useState('')
+  const [numTo, setNumTo] = useState('')
   const [stageFilter, setStageFilter] = useState<Stage | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
 
@@ -113,6 +115,13 @@ export default function OrdersPage() {
     if (search &&
         !o.order_number.toLowerCase().includes(search.toLowerCase()) &&
         !o.customer_name.toLowerCase().includes(search.toLowerCase())) return false
+    if (numFrom || numTo) {
+      const n = parseInt((o.order_number.match(/(\d+)\s*$/)?.[1]) ?? '', 10)
+      if (!isNaN(n)) {
+        if (numFrom && n < parseInt(numFrom, 10)) return false
+        if (numTo && n > parseInt(numTo, 10)) return false
+      }
+    }
     if (stageFilter !== 'all' && o.current_stage !== stageFilter) return false
     if (statusFilter !== 'all' && o.status !== statusFilter) return false
     return true
@@ -181,6 +190,23 @@ export default function OrdersPage() {
             onChange={e => setSearch(e.target.value)}
             className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f1b35]"
           />
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              placeholder={tr.fromNo}
+              value={numFrom}
+              onChange={e => setNumFrom(e.target.value)}
+              className="w-24 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f1b35]"
+            />
+            <span className="text-gray-400 text-sm">&ndash;</span>
+            <input
+              type="number"
+              placeholder={tr.toNo}
+              value={numTo}
+              onChange={e => setNumTo(e.target.value)}
+              className="w-24 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f1b35]"
+            />
+          </div>
           <select
             value={stageFilter}
             onChange={e => setStageFilter(e.target.value as Stage | 'all')}
