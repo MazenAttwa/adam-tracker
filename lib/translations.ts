@@ -340,8 +340,8 @@ export const t = {
     // Vendor link in stock
     linkVendor: 'Vendor (optional)',
     linkVendorHint: 'Assign the supplier for this material. Past purchases with a recorded cost will be added to their account as owed.',
-    recordAsOwed: 'Add this purchase to the vendor account as owed',
-    recordAsOwedHint: 'Only tick this if you have not already recorded this purchase for this vendor. The amount is pre-filled from stock x cost/unit - edit it if needed.',
+    recordAsOwed: 'Set a custom amount for this purchase',
+    recordAsOwedHint: 'Attaching a supplier automatically adds the purchase (stock x cost/unit) to their account as owed. Tick only to override the amount.',
     vendorAlreadyLinked: 'Supplier already linked to the purchases of this material.',
     noVendor: 'No vendor',
     purchaseAmount: 'Purchase Amount',
@@ -946,8 +946,8 @@ export const t = {
 
     linkVendor: 'المورّد (اختياري)',
     linkVendorHint: 'اختر المورد لهذه الخامة. سيتم إضافة المشتريات السابقة ذات التكلفة المسجلة إلى حسابه كمستحقات.',
-    recordAsOwed: 'إضافة هذه المشتريات إلى حساب المورد كمستحقات',
-    recordAsOwedHint: 'فعّل هذا الخيار فقط إذا لم تسجّل هذه المشتريات لهذا المورد من قبل. المبلغ محسوب من الكمية × سعر الوحدة — يمكنك تعديله.',
+    recordAsOwed: 'تحديد مبلغ مخصص لهذه المشتريات',
+    recordAsOwedHint: 'ربط المورد يضيف المشتريات تلقائياً (الكمية × سعر الوحدة) إلى حسابه كمستحقات. فعّل الخيار فقط لتغيير المبلغ.',
     vendorAlreadyLinked: 'المورد مرتبط بالفعل بمشتريات هذه الخامة.',
     noVendor: 'بدون مورّد',
     purchaseAmount: 'مبلغ الشراء',

@@ -248,9 +248,13 @@ export default function MaterialsPage() {
         }
       }
 
-      // Bill the vendor ONLY when explicitly requested (you control the amount) — never automatic.
-      if (editVendorId && billVendor) {
-        const amount = parseFloat(billAmount) || 0
+      // Bill the vendor automatically when a supplier is NEWLY attached (material had
+      // none before and was not already billed), OR when the box is ticked. Never double-bills.
+      const newlyAttached = !!editVendorId && !editing.vendor_id && !editVendorLinked
+      const shouldBill = !!editVendorId && (billVendor || newlyAttached)
+      if (shouldBill) {
+        const autoAmount = (purchasedMap[editing.id] ?? stockMap[editing.id] ?? 0) * (payload.cost_per_unit || 0)
+        const amount = billVendor ? (parseFloat(billAmount) || 0) : autoAmount
         const vendor = vendors.find(v => v.id === editVendorId)
         if (vendor && amount > 0) {
           await supabase.from('vendor_transactions').insert({
