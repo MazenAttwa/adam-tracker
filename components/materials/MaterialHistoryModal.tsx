@@ -17,6 +17,9 @@ export function MaterialHistoryModal({
   const { tr, lang } = useLang()
   const [movements, setMovements] = useState<StockMovement[]>([])
   const [loading, setLoading] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDate, setEditDate] = useState('')
+  const [savingDate, setSavingDate] = useState(false)
 
   useEffect(() => {
     if (!material) return
@@ -40,6 +43,15 @@ export function MaterialHistoryModal({
 
   function receiptUrl(path: string): string {
     return supabase.storage.from('material-photos').getPublicUrl(path).data.publicUrl
+  }
+
+  async function savePurchaseDate(id: string) {
+    if (!editDate) { setEditingId(null); return }
+    setSavingDate(true)
+    await supabase.from('stock_movements').update({ purchase_date: editDate }).eq('id', id)
+    setMovements(prev => prev.map(m => m.id === id ? { ...m, purchase_date: editDate } : m))
+    setSavingDate(false)
+    setEditingId(null)
   }
 
   const purchases = movements.filter(m => m.type === 'in')
@@ -92,7 +104,26 @@ export function MaterialHistoryModal({
                     {purchases.map(p => (
                       <tr key={p.id}>
                         <td className="px-3 py-2 text-gray-600">
-                          {formatDate(p.purchase_date ?? p.created_at, lang)}
+                          {editingId === p.id ? (
+                            <input
+                              type="date"
+                              autoFocus
+                              defaultValue={(p.purchase_date ?? p.created_at ?? '').slice(0, 10)}
+                              onChange={e => setEditDate(e.target.value)}
+                              onBlur={() => savePurchaseDate(p.id)}
+                              disabled={savingDate}
+                              className="px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f1b35]"
+                            />
+                          ) : (
+                            <button
+                              onClick={() => { setEditDate((p.purchase_date ?? p.created_at ?? '').slice(0, 10)); setEditingId(p.id) }}
+                              className="inline-flex items-center gap-1 hover:text-[#0f1b35] hover:underline"
+                              title={tr.editDate}
+                            >
+                              {formatDate(p.purchase_date ?? p.created_at, lang)}
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                            </button>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-green-700 font-medium">
                           +{fmt(p.quantity)}
